@@ -1,0 +1,38 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Android
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/*.keystore
+
+# Environment (NEVER commit)
+.env
+.env.local
+.env.production
+
+# iOS (not needed for this project)
+ios/
+
+# Build outputs
+*.apk
+*.aab
+
+# Metro
+.metro-health-check*
+
+# Editor
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# React Native
+*.hprof
+```

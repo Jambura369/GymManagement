@@ -1,0 +1,329 @@
+import React, {useEffect, useCallback, useState} from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  Linking,
+} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {FAB, Avatar, Chip} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import dayjs from 'dayjs';
+
+import {useStudentStore} from '../../store/studentStore';
+import {useAuthStore} from '../../store/authStore';
+import {useThemeStore} from '../../store/themeStore';
+import {COLORS, SPACING, BORDER_RADIUS, VERIFICATION_COLORS} from '../../constants';
+import {RootStackParamList, Student} from '../../types';
+import SearchBar from '../../components/common/SearchBar';
+import EmptyState from '../../components/common/EmptyState';
+import CardSkeleton from '../../components/skeletons/CardSkeleton';
+import StatusBadge from '../../components/common/StatusBadge';
+import AppHeader from '../../components/common/AppHeader';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const FILTER_OPTIONS = ['All', 'Active', 'Pending', 'Approved', 'Rejected'];
+
+const StudentListScreen: React.FC = () => {
+  const navigation = useNavigation<Nav>();
+  const {user, gym} = useAuthStore();
+  const {isDark} = useThemeStore();
+  const {
+    students,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    fetchStudents,
+    loadMore,
+    setFilter,
+    clearFilter,
+    filter,
+  } = useStudentStore();
+
+  const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
+  const textColor = isDark ? COLORS.textDark : COLORS.text;
+  const cardBg = isDark ? COLORS.cardDark : COLORS.card;
+
+  const load = useCallback(
+    (reset = true) => {
+      if (gym) fetchStudents(gym.id, reset);
+    },
+    [gym, fetchStudents],
+  );
+
+  useEffect(() => {
+    load();
+  }, [load, filter]);
+
+  const onSearchChange = (text: string) => {
+    setSearch(text);
+    setFilter({search: text});
+  };
+
+  const onFilterChange = (f: string) => {
+    setActiveFilter(f);
+    if (f === 'All') {
+      clearFilter();
+    } else if (f === 'Active') {
+      setFilter({is_active: true, verification_status: undefined});
+    } else {
+      setFilter({verification_status: f as any, is_active: undefined});
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchStudents(gym!.id, true);
+    setRefreshing(false);
+  };
+
+  const renderStudent = ({item}: {item: Student}) => {
+    const isExpired =
+      item.membership_expiry &&
+      dayjs(item.membership_expiry).isBefore(dayjs());
+    const daysLeft = item.membership_expiry
+      ? dayjs(item.membership_expiry).diff(dayjs(), 'day')
+      : null;
+
+    return (
+      <TouchableOpacity
+        style={[styles.card, {backgroundColor: cardBg}]}
+        onPress={() =>
+          navigation.navigate('StudentDetail', {studentId: item.id})
+        }
+        activeOpacity={0.7}>
+        <View style={styles.cardRow}>
+          {item.image ? (
+            <Avatar.Image size={48} source={{uri: item.image}} />
+          ) : (
+            <Avatar.Text
+              size={48}
+              label={item.name.slice(0, 2).toUpperCase()}
+              style={{backgroundColor: COLORS.primary + '30'}}
+              labelStyle={{color: COLORS.primary}}
+            />
+          )}
+          <View style={styles.cardInfo}>
+            <Text style={[styles.name, {color: textColor}]} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={[styles.phone, {color: COLORS.textSecondary}]}>
+              {item.phone}
+            </Text>
+            {item.membership_expiry && (
+              <Text
+                style={[
+                  styles.expiry,
+                  {
+                    color: isExpired
+                      ? COLORS.error
+                      : (daysLeft ?? 999) <= 7
+                      ? COLORS.warning
+                      : COLORS.success,
+                  },
+                ]}>
+                {isExpired
+                  ? 'Expired'
+                  : daysLeft === 0
+                  ? 'Expires today'
+                  : `Expires in ${daysLeft}d`}
+              </Text>
+            )}
+          </View>
+          <View style={styles.cardActions}>
+            <StatusBadge
+              status={
+                item.is_active
+                  ? 'Active'
+                  : item.verification_status === 'Pending'
+                  ? 'Pending'
+                  : item.verification_status === 'Rejected'
+                  ? 'Rejected'
+                  : 'Inactive'
+              }
+              size="sm"
+            />
+            <TouchableOpacity
+              style={styles.callBtn}
+              onPress={() => Linking.openURL(`tel:${item.phone}`)}>
+              <MaterialCommunityIcons
+                name="phone"
+                size={18}
+                color={COLORS.success}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+        {item.package && (
+          <View style={styles.packageBadge}>
+            <MaterialCommunityIcons
+              name="package-variant"
+              size={12}
+              color={COLORS.primary}
+            />
+            <Text style={[styles.packageText, {color: COLORS.primary}]}>
+              {item.package.name}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    return <CardSkeleton count={2} isDark={isDark} />;
+  };
+
+  return (
+    <View style={[styles.container, {backgroundColor: bgColor}]}>
+      <AppHeader
+        title="Students"
+        subtitle={`${students.length} found`}
+        isDark={isDark}
+        rightComponent={
+          (user?.role === 'Admin' || user?.role === 'Manager') ? (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('VerificationList')}>
+              <MaterialCommunityIcons
+                name="account-clock"
+                size={24}
+                color={isDark ? COLORS.textDark : COLORS.text}
+              />
+            </TouchableOpacity>
+          ) : null
+        }
+      />
+
+      <SearchBar
+        value={search}
+        onChangeText={onSearchChange}
+        placeholder="Search by name or phone..."
+        isDark={isDark}
+      />
+
+      {/* Filters */}
+      <View style={styles.filterRow}>
+        {FILTER_OPTIONS.map(f => (
+          <Chip
+            key={f}
+            selected={activeFilter === f}
+            onPress={() => onFilterChange(f)}
+            style={[
+              styles.filterChip,
+              activeFilter === f && {backgroundColor: COLORS.primary},
+            ]}
+            textStyle={{
+              color: activeFilter === f ? '#FFF' : isDark ? COLORS.textDark : COLORS.text,
+              fontSize: 12,
+            }}
+            compact>
+            {f}
+          </Chip>
+        ))}
+      </View>
+
+      {isLoading && students.length === 0 ? (
+        <CardSkeleton count={6} isDark={isDark} />
+      ) : (
+        <FlatList
+          data={students}
+          keyExtractor={item => item.id}
+          renderItem={renderStudent}
+          ListEmptyComponent={
+            <EmptyState
+              icon="account-off-outline"
+              title="No students found"
+              subtitle="Add a student to get started"
+              actionLabel="Add Student"
+              onAction={() => navigation.navigate('AddStudent')}
+              isDark={isDark}
+            />
+          }
+          ListFooterComponent={renderFooter}
+          onEndReached={() => hasMore && gym && loadMore(gym.id)}
+          onEndReachedThreshold={0.3}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      <FAB
+        icon="plus"
+        style={[styles.fab, {backgroundColor: COLORS.primary}]}
+        color="#FFF"
+        onPress={() => navigation.navigate('AddStudent')}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {flex: 1},
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  filterChip: {height: 30},
+  list: {padding: SPACING.md, paddingBottom: 80},
+  card: {
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  cardRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm},
+  cardInfo: {flex: 1},
+  name: {fontSize: 15, fontWeight: '700'},
+  phone: {fontSize: 13, marginTop: 2},
+  expiry: {fontSize: 11, marginTop: 2, fontWeight: '600'},
+  cardActions: {alignItems: 'flex-end', gap: 8},
+  callBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.success + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  packageBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: SPACING.xs,
+    paddingTop: SPACING.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
+  },
+  packageText: {fontSize: 11, fontWeight: '600'},
+  fab: {
+    position: 'absolute',
+    bottom: SPACING.lg,
+    right: SPACING.lg,
+    elevation: 4,
+  },
+});
+
+export default StudentListScreen;
