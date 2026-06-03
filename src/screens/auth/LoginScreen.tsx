@@ -79,7 +79,7 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: bgColor}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar backgroundColor="transparent" barStyle="light-content" translucent />
 
       <ScrollView
@@ -181,6 +181,15 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
             loading={loading}
             style={styles.button}
           />
+
+          <TouchableOpacity
+            style={styles.forgotBtn}
+            onPress={() => navigation.navigate('ForgotPassword')}
+            activeOpacity={0.7}>
+            <Text style={[styles.forgotText, {color: COLORS.primary}]}>
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
 
           <View style={styles.divider}>
             <View style={[styles.dividerLine, {backgroundColor: borderColor}]} />
@@ -323,6 +332,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   registerText: {flex: 1, fontSize: 14, fontWeight: '600'},
+  forgotBtn: {alignSelf: 'flex-end', marginTop: SPACING.xs, marginBottom: SPACING.xs},
+  forgotText: {fontSize: 13, fontWeight: '600'},
   footer: {textAlign: 'center', fontSize: 11, marginTop: SPACING.lg},
 });
 

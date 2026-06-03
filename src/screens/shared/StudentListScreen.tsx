@@ -1,4 +1,4 @@
-import React, {useEffect, useCallback, useState} from 'react';
+import React, {useEffect, useCallback, useState, useRef} from 'react';
 import {
   StyleSheet,
   View,
@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   Linking,
+  ScrollView,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {FAB, Avatar, Chip} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {FAB} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
 
@@ -24,6 +26,7 @@ import EmptyState from '../../components/common/EmptyState';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import StatusBadge from '../../components/common/StatusBadge';
 import AppHeader from '../../components/common/AppHeader';
+import AvatarWithFallback from '../../components/common/AvatarWithFallback';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -35,6 +38,7 @@ const StudentListScreen: React.FC = () => {
   const {isDark} = useThemeStore();
   const {
     students,
+    total,
     isLoading,
     isLoadingMore,
     hasMore,
@@ -45,9 +49,11 @@ const StudentListScreen: React.FC = () => {
     filter,
   } = useStudentStore();
 
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [refreshing, setRefreshing] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
@@ -64,9 +70,18 @@ const StudentListScreen: React.FC = () => {
     load();
   }, [load, filter]);
 
+  useFocusEffect(
+    useCallback(() => {
+      load(true);
+    }, [load]),
+  );
+
   const onSearchChange = (text: string) => {
     setSearch(text);
-    setFilter({search: text});
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setFilter({search: text});
+    }, 350);
   };
 
   const onFilterChange = (f: string) => {
@@ -102,16 +117,7 @@ const StudentListScreen: React.FC = () => {
         }
         activeOpacity={0.7}>
         <View style={styles.cardRow}>
-          {item.image ? (
-            <Avatar.Image size={48} source={{uri: item.image}} />
-          ) : (
-            <Avatar.Text
-              size={48}
-              label={item.name.slice(0, 2).toUpperCase()}
-              style={{backgroundColor: COLORS.primary + '30'}}
-              labelStyle={{color: COLORS.primary}}
-            />
-          )}
+          <AvatarWithFallback uri={item.image} name={item.name} size={48} />
           <View style={styles.cardInfo}>
             <Text style={[styles.name, {color: textColor}]} numberOfLines={1}>
               {item.name}
@@ -188,7 +194,7 @@ const StudentListScreen: React.FC = () => {
     <View style={[styles.container, {backgroundColor: bgColor}]}>
       <AppHeader
         title="Students"
-        subtitle={`${students.length} found`}
+        subtitle={`${total} found`}
         isDark={isDark}
         rightComponent={
           (user?.role === 'Admin' || user?.role === 'Manager') ? (
@@ -212,25 +218,45 @@ const StudentListScreen: React.FC = () => {
       />
 
       {/* Filters */}
-      <View style={styles.filterRow}>
-        {FILTER_OPTIONS.map(f => (
-          <Chip
-            key={f}
-            selected={activeFilter === f}
-            onPress={() => onFilterChange(f)}
-            style={[
-              styles.filterChip,
-              activeFilter === f && {backgroundColor: COLORS.primary},
-            ]}
-            textStyle={{
-              color: activeFilter === f ? '#FFF' : isDark ? COLORS.textDark : COLORS.text,
-              fontSize: 12,
-            }}
-            compact>
-            {f}
-          </Chip>
-        ))}
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}>
+        {FILTER_OPTIONS.map(f => {
+          const isActive = activeFilter === f;
+          return (
+            <TouchableOpacity
+              key={f}
+              onPress={() => onFilterChange(f)}
+              activeOpacity={0.75}
+              style={[
+                styles.filterTab,
+                isActive
+                  ? styles.filterTabActive
+                  : {
+                      backgroundColor: isDark ? COLORS.cardDark : '#F3F4F6',
+                      borderColor: isDark ? COLORS.border : '#E5E7EB',
+                    },
+              ]}>
+              <Text
+                style={[
+                  styles.filterTabText,
+                  {
+                    color: isActive
+                      ? '#FFF'
+                      : isDark
+                      ? COLORS.textDark
+                      : '#374151',
+                    fontWeight: isActive ? '700' : '500',
+                  },
+                ]}>
+                {f}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {isLoading && students.length === 0 ? (
         <CardSkeleton count={6} isDark={isDark} />
@@ -252,7 +278,7 @@ const StudentListScreen: React.FC = () => {
           ListFooterComponent={renderFooter}
           onEndReached={() => hasMore && gym && loadMore(gym.id)}
           onEndReachedThreshold={0.3}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, {paddingBottom: 80 + insets.bottom}]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -276,14 +302,29 @@ const StudentListScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  filterScroll: {flexGrow: 0, flexShrink: 0},
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.xs,
-    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    gap: 8,
+    alignItems: 'center',
   },
-  filterChip: {height: 30},
-  list: {padding: SPACING.md, paddingBottom: 80},
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filterTabText: {
+    fontSize: 13,
+  },
+  list: {padding: SPACING.md},
   card: {
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,

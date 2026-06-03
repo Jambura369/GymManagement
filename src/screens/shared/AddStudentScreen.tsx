@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   StyleSheet,
   View,
@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {Chip} from 'react-native-paper';
-import {launchImageLibrary} from 'react-native-image-picker';
+import {showImagePicker} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import DatePickerModal from '../../components/common/DatePickerModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -33,9 +34,14 @@ import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
 import SelectPicker from '../../components/common/SelectPicker';
 
+const PHONE_REGEX = /^[6-9]\d{9}$|^\+?[1-9]\d{7,14}$/;
+
 const schema = z.object({
-  name: z.string().min(2, 'Name required'),
-  phone: z.string().min(10, 'Valid phone required'),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z
+    .string()
+    .min(10, 'Phone must be at least 10 digits')
+    .regex(PHONE_REGEX, 'Enter a valid phone number'),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   joining_date: z.string(),
   package_id: z.string().min(1, 'Select a package'),
@@ -54,9 +60,13 @@ const AddStudentScreen: React.FC = () => {
   const {isDark} = useThemeStore();
   const {addStudent} = useStudentStore();
 
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState<string | null>(null);
+  const savedRef = useRef(false);
   const [packages, setPackages] = useState<Package[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [packagesError, setPackagesError] = useState('');
   const [trainers, setTrainers] = useState<User[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -68,7 +78,7 @@ const AddStudentScreen: React.FC = () => {
     handleSubmit,
     setValue,
     watch,
-    formState: {errors},
+    formState: {errors, isDirty},
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -92,6 +102,24 @@ const AddStudentScreen: React.FC = () => {
     loadData();
   }, []);
 
+  // Warn user before discarding unsaved changes
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', e => {
+      if (savedRef.current || (!isDirty && !image)) return;
+      e.preventDefault();
+      const {Alert} = require('react-native');
+      Alert.alert(
+        'Discard changes?',
+        'You have unsaved changes. Are you sure you want to go back?',
+        [
+          {text: 'Keep Editing', style: 'cancel'},
+          {text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action)},
+        ],
+      );
+    });
+    return unsubscribe;
+  }, [navigation, isDirty, image]);
+
   useEffect(() => {
     // Auto-fill amount from package
     const pkg = packages.find(p => p.id === selectedPackageId);
@@ -100,31 +128,35 @@ const AddStudentScreen: React.FC = () => {
 
   const loadData = async () => {
     if (!gym) return;
+    setPackagesLoading(true);
+    setPackagesError('');
     const [pkgRes, trainerRes] = await Promise.all([
       fetchPackages(gym.id, true),
       fetchUsers(gym.id, 'Trainer'),
     ]);
-    if (pkgRes.data) setPackages(pkgRes.data);
+    setPackagesLoading(false);
+    if (pkgRes.data) {
+      setPackages(pkgRes.data);
+      if (pkgRes.data.length === 0) {
+        setPackagesError('No packages found. Please create at least one package in Gym Settings first.');
+      }
+    } else {
+      setPackagesError(pkgRes.error || 'Failed to load packages');
+    }
     if (trainerRes.data) setTrainers(trainerRes.data);
   };
 
-  const pickImage = async () => {
-    const result = await launchImageLibrary({
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 600,
-      maxHeight: 600,
-    });
-    if (!result.didCancel && result.assets?.[0]?.uri) {
-      setImage(result.assets[0].uri);
-    }
+  const pickImage = () => {
+    showImagePicker({quality: 0.8, maxWidth: 600, maxHeight: 600}, uri =>
+      setImage(uri),
+    );
   };
 
   const onSubmit = async (data: FormData) => {
     if (!gym || !user) return;
     setLoading(true);
 
-    const studentId = await addStudent(gym.id, user.id, {
+    const {id: studentId, error: addError} = await addStudent(gym.id, user.id, user.role, {
       ...data,
       image: image || undefined,
       email: data.email || undefined,
@@ -133,15 +165,19 @@ const AddStudentScreen: React.FC = () => {
 
     setLoading(false);
 
+    const isAdminOrManager = user.role === 'Admin' || user.role === 'Manager';
     if (studentId) {
+      savedRef.current = true;
       Toast.show({
         type: 'success',
         text1: 'Student Added!',
-        text2: 'Waiting for verification approval.',
+        text2: isAdminOrManager
+          ? 'Student is now active.'
+          : 'Waiting for Admin/Manager verification.',
       });
       navigation.goBack();
     } else {
-      Toast.show({type: 'error', text1: 'Failed', text2: 'Could not add student'});
+      Toast.show({type: 'error', text1: 'Failed', text2: addError ?? 'Could not add student'});
     }
   };
 
@@ -158,14 +194,14 @@ const AddStudentScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: bgColor}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader
         title="Add New Student"
         onBack={() => navigation.goBack()}
         isDark={isDark}
       />
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
@@ -267,12 +303,17 @@ const AddStudentScreen: React.FC = () => {
             onCancel={() => setShowDatePicker(false)}
           />
 
+          {packagesError ? (
+            <View style={styles.packageAlert}>
+              <Text style={styles.packageAlertText}>{packagesError}</Text>
+            </View>
+          ) : null}
           <Controller
             control={control}
             name="package_id"
             render={({field: {onChange, value}}) => (
               <SelectPicker
-                label="Select Package *"
+                label={packagesLoading ? 'Loading packages…' : 'Select Package *'}
                 value={value}
                 options={packageOptions}
                 onSelect={onChange}
@@ -339,7 +380,10 @@ const AddStudentScreen: React.FC = () => {
               <AppInput
                 label="Amount Received *"
                 value={value?.toString()}
-                onChangeText={text => onChange(Number(text) || 0)}
+                onChangeText={text => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? 0 : num);
+                }}
                 keyboardType="numeric"
                 error={errors.amount_paid?.message}
               />
@@ -373,7 +417,9 @@ const AddStudentScreen: React.FC = () => {
         />
 
         <Text style={styles.hint}>
-          Student will be pending verification until Admin/Manager approves.
+          {user?.role === 'Trainer'
+            ? 'Student will be pending verification until Admin/Manager approves.'
+            : 'Student will be activated immediately.'}
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -382,7 +428,7 @@ const AddStudentScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
   photoContainer: {alignSelf: 'center', marginBottom: SPACING.md},
   photo: {
     width: 100,
@@ -439,6 +485,15 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     lineHeight: 18,
   },
+  packageAlert: {
+    backgroundColor: COLORS.warning + '20',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.warning,
+  },
+  packageAlertText: {fontSize: 12, color: COLORS.warning, lineHeight: 18},
 });
 
 export default AddStudentScreen;

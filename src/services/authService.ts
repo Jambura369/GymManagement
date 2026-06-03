@@ -3,6 +3,12 @@ import {ApiResponse, Gym, RegisterGymForm, User} from '../types';
 import {uploadImage} from './storageService';
 import {SUPABASE_BUCKETS} from '../constants';
 
+const isNetworkError = (err: any): boolean =>
+  err?.message?.toLowerCase().includes('network') ||
+  err?.message?.toLowerCase().includes('fetch');
+
+const networkErrorMsg = 'No internet connection. Please check your network and try again.';
+
 // ---- Register Gym (Owner Onboarding) ----
 export const registerGym = async (
   form: RegisterGymForm,
@@ -18,18 +24,24 @@ export const registerGym = async (
       return {data: null, error: authError?.message || 'Registration failed'};
     }
 
-    // Sign in immediately so RLS policies work during gym/user insert
+    // Sign in immediately so RLS policies work during gym/user insert.
+    // If email confirmation is required, signUp returns no session — tell
+    // the user to verify their email rather than showing a generic error.
     if (!authData.session) {
       const {error: signInError} = await supabase.auth.signInWithPassword({
         email: form.email,
         password: form.password,
       });
       if (signInError) {
-        return {data: null, error: 'Account created but sign-in failed. Please log in manually.'};
+        return {
+          data: null,
+          error:
+            'Account created! Please check your email to verify your account, then log in.',
+        };
       }
     }
 
-    // 2. Upload gym logo if provided
+    // 2. Upload gym logo if provided — warn but continue if upload fails
     let gymLogoUrl: string | null = null;
     if (form.gym_logo) {
       const logoResult = await uploadImage(
@@ -37,7 +49,10 @@ export const registerGym = async (
         SUPABASE_BUCKETS.GYM_LOGOS,
         `${authData.user.id}/logo`,
       );
-      gymLogoUrl = logoResult.data;
+      if (logoResult.data) {
+        gymLogoUrl = logoResult.data;
+      }
+      // Upload failure is non-fatal; gym is still created without a logo
     }
 
     // 3. Upload payment QR if provided
@@ -48,11 +63,12 @@ export const registerGym = async (
         SUPABASE_BUCKETS.PAYMENT_QR,
         `${authData.user.id}/payment_qr`,
       );
-      paymentQrUrl = qrResult.data;
+      if (qrResult.data) {
+        paymentQrUrl = qrResult.data;
+      }
     }
 
     // 4. Register gym + user atomically via SECURITY DEFINER function
-    // (direct table inserts are blocked by RLS for new users with no existing gym)
     const {data: rpcData, error: rpcError} = await supabase.rpc(
       'register_gym_owner',
       {
@@ -75,7 +91,7 @@ export const registerGym = async (
 
     return {data: {user: userData, gym: gymData}, error: null};
   } catch (err: any) {
-    return {data: null, error: err.message || 'Unexpected error'};
+    return {data: null, error: isNetworkError(err) ? networkErrorMsg : (err.message || 'Unexpected error')};
   }
 };
 
@@ -88,8 +104,6 @@ export const login = async (
     const {data: authData, error: authError} =
       await supabase.auth.signInWithPassword({email, password});
 
-    console.log('[LOGIN] signIn result:', authError?.message, authData?.user?.id);
-
     if (authError || !authData.user) {
       return {data: null, error: authError?.message || 'Login failed'};
     }
@@ -101,8 +115,6 @@ export const login = async (
       .eq('auth_id', authData.user.id)
       .single();
 
-    console.log('[LOGIN] user query:', userError?.message, userError?.code, userData?.id);
-
     if (userError || !userData) {
       return {data: null, error: userError?.message || 'User profile not found'};
     }
@@ -113,12 +125,12 @@ export const login = async (
 
     if (!user.is_active) {
       await supabase.auth.signOut();
-      return {data: null, error: 'Your account has been deactivated'};
+      return {data: null, error: 'Your account has been deactivated. Please contact your admin.'};
     }
 
     return {data: {user, gym}, error: null};
   } catch (err: any) {
-    return {data: null, error: err.message || 'Unexpected error'};
+    return {data: null, error: isNetworkError(err) ? networkErrorMsg : (err.message || 'Unexpected error')};
   }
 };
 
@@ -149,9 +161,14 @@ export const getCurrentSession = async (): Promise<ApiResponse<{user: User; gym:
     const user = {...userData} as unknown as User;
     delete (user as any).gym;
 
+    if (!user.is_active) {
+      await supabase.auth.signOut();
+      return {data: null, error: 'Your account has been deactivated. Please contact your admin.'};
+    }
+
     return {data: {user, gym}, error: null};
   } catch (err: any) {
-    return {data: null, error: err.message};
+    return {data: null, error: isNetworkError(err) ? networkErrorMsg : err.message};
   }
 };
 
@@ -164,7 +181,7 @@ export const resetPassword = async (
     if (error) return {data: null, error: error.message};
     return {data: null, error: null};
   } catch (err: any) {
-    return {data: null, error: err.message};
+    return {data: null, error: isNetworkError(err) ? networkErrorMsg : err.message};
   }
 };
 

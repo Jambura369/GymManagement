@@ -13,7 +13,7 @@ import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {TextInput} from 'react-native-paper';
-import {launchImageLibrary} from 'react-native-image-picker';
+import {showImagePicker} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -27,13 +27,22 @@ import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
 
+const PHONE_REGEX = /^[6-9]\d{9}$|^\+?[1-9]\d{7,14}$/;
+
 const schema = z
   .object({
     gym_name: z.string().min(2, 'Gym name must be at least 2 characters'),
     owner_name: z.string().min(2, 'Owner name required'),
-    phone: z.string().min(10, 'Valid phone number required'),
+    phone: z
+      .string()
+      .min(10, 'Phone number must be at least 10 digits')
+      .regex(PHONE_REGEX, 'Enter a valid phone number'),
     email: z.string().email('Invalid email'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+      .regex(/\d/, 'Password must contain at least one number'),
     confirm_password: z.string(),
     address: z.string().min(5, 'Address required'),
   })
@@ -48,6 +57,7 @@ type Props = {navigation: NativeStackNavigationProp<RootStackParamList, 'Registe
 const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [gymLogo, setGymLogo] = useState<string | null>(null);
   const [paymentQr, setPaymentQr] = useState<string | null>(null);
   const {setAuth} = useAuthStore();
@@ -73,18 +83,11 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
     },
   });
 
-  const pickImage = async (type: 'logo' | 'qr') => {
-    const result = await launchImageLibrary({
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 800,
-      maxHeight: 800,
+  const pickImage = (type: 'logo' | 'qr') => {
+    showImagePicker({quality: 0.8, maxWidth: 800, maxHeight: 800}, uri => {
+      if (type === 'logo') setGymLogo(uri);
+      else setPaymentQr(uri);
     });
-
-    if (!result.didCancel && result.assets?.[0]?.uri) {
-      if (type === 'logo') setGymLogo(result.assets[0].uri);
-      else setPaymentQr(result.assets[0].uri);
-    }
   };
 
   const onSubmit = async (data: FormData) => {
@@ -97,7 +100,12 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
     setLoading(false);
 
     if (result.error) {
-      Toast.show({type: 'error', text1: 'Registration Failed', text2: result.error});
+      Toast.show({
+        type: result.error.includes('verify your email') ? 'info' : 'error',
+        text1: result.error.includes('verify your email') ? 'Check Your Email' : 'Registration Failed',
+        text2: result.error,
+        visibilityTime: 5000,
+      });
       return;
     }
 
@@ -114,7 +122,7 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: bgColor}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader
         title="Register Your Gym"
         subtitle="Set up your gym account"
@@ -288,8 +296,14 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                secureTextEntry={!showPassword}
+                secureTextEntry={!showConfirmPassword}
                 error={errors.confirm_password?.message}
+                right={
+                  <TextInput.Icon
+                    icon={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                    onPress={() => setShowConfirmPassword(p => !p)}
+                  />
+                }
               />
             )}
           />

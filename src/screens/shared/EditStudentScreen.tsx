@@ -1,10 +1,11 @@
-import React, {useState, useEffect} from 'react';
-import {StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Text, TouchableOpacity, Image} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Text, TouchableOpacity, Image, ActivityIndicator} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
-import {launchImageLibrary} from 'react-native-image-picker';
+import {showImagePicker} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
@@ -23,10 +24,15 @@ import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
 import SelectPicker from '../../components/common/SelectPicker';
 
+const PHONE_REGEX = /^[6-9]\d{9}$|^\+?[1-9]\d{7,14}$/;
+
 const schema = z.object({
-  name: z.string().min(2),
-  phone: z.string().min(10),
-  email: z.string().email().optional().or(z.literal('')),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z
+    .string()
+    .min(10, 'Phone must be at least 10 digits')
+    .regex(PHONE_REGEX, 'Enter a valid phone number'),
+  email: z.string().email('Enter a valid email').optional().or(z.literal('')),
   notes: z.string().optional(),
 });
 
@@ -39,22 +45,44 @@ const EditStudentScreen: React.FC = () => {
   const {isDark} = useThemeStore();
   const {gym} = useAuthStore();
   const {updateStudent} = useStudentStore();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [student, setStudent] = useState<Student | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [packages, setPackages] = useState<Package[]>([]);
   const [selectedPackage, setSelectedPackage] = useState('');
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
+  const textColor = isDark ? COLORS.textDark : COLORS.text;
 
-  const {control, handleSubmit, reset, formState: {errors}} = useForm<FormData>({resolver: zodResolver(schema)});
+  const {control, handleSubmit, reset, formState: {errors, isDirty}} = useForm<FormData>({resolver: zodResolver(schema)});
 
   useEffect(() => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', e => {
+      const imageChanged = image !== (student?.image ?? null);
+      if (!isDirty && !imageChanged) return;
+      e.preventDefault();
+      const {Alert} = require('react-native');
+      Alert.alert(
+        'Discard changes?',
+        'You have unsaved changes. Are you sure you want to go back?',
+        [
+          {text: 'Keep Editing', style: 'cancel'},
+          {text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action)},
+        ],
+      );
+    });
+    return unsubscribe;
+  }, [navigation, isDirty, image, student]);
+
   const loadData = async () => {
     if (!gym) return;
+    setFetching(true);
     const [studentRes, pkgRes] = await Promise.all([
       getStudent(route.params.studentId),
       fetchPackages(gym.id),
@@ -71,11 +99,11 @@ const EditStudentScreen: React.FC = () => {
       });
     }
     if (pkgRes.data) setPackages(pkgRes.data);
+    setFetching(false);
   };
 
-  const pickImage = async () => {
-    const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8});
-    if (!result.didCancel && result.assets?.[0]?.uri) setImage(result.assets[0].uri);
+  const pickImage = () => {
+    showImagePicker({quality: 0.8, maxWidth: 600, maxHeight: 600}, uri => setImage(uri));
   };
 
   const onSubmit = async (data: FormData) => {
@@ -83,10 +111,32 @@ const EditStudentScreen: React.FC = () => {
     setLoading(true);
     let imageUrl = student.image;
     if (image && image !== student.image) {
-      const res = await uploadImage(image, SUPABASE_BUCKETS.STUDENT_IMAGES, `${student.gym_id}/${Date.now()}`);
+      const res = await uploadImage(
+        image,
+        SUPABASE_BUCKETS.STUDENT_IMAGES,
+        `${student.gym_id}`,
+        student.image || undefined,
+      );
       if (res.data) imageUrl = res.data;
     }
-    const success = await updateStudent(student.id, {...data, image: imageUrl, package_id: selectedPackage || null});
+
+    // Recalculate expiry when package changed
+    let membershipExpiry = student.membership_expiry;
+    if (selectedPackage && selectedPackage !== student.package_id) {
+      const pkg = packages.find(p => p.id === selectedPackage);
+      if (pkg && student.joining_date) {
+        membershipExpiry = dayjs(student.joining_date)
+          .add(pkg.duration_days, 'day')
+          .format('YYYY-MM-DD');
+      }
+    }
+
+    const success = await updateStudent(student.id, {
+      ...data,
+      image: imageUrl,
+      package_id: selectedPackage || null,
+      membership_expiry: membershipExpiry,
+    });
     setLoading(false);
     if (success) {
       Toast.show({type: 'success', text1: 'Student Updated!'});
@@ -96,12 +146,23 @@ const EditStudentScreen: React.FC = () => {
     }
   };
 
+  if (fetching) {
+    return (
+      <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark={isDark} />
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
+
   if (!student) return null;
 
   return (
-    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark={isDark} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.photoContainer} onPress={pickImage}>
           {image ? (
             <Image source={{uri: image}} style={styles.photo} />
@@ -120,7 +181,7 @@ const EditStudentScreen: React.FC = () => {
             <AppInput label="Phone *" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="phone-pad" error={errors.phone?.message} />
           )} />
           <Controller control={control} name="email" render={({field: {onChange, value, onBlur}}) => (
-            <AppInput label="Email (Optional)" value={value ?? ''} onChangeText={onChange} onBlur={onBlur} keyboardType="email-address" autoCapitalize="none" />
+            <AppInput label="Email (Optional)" value={value ?? ''} onChangeText={onChange} onBlur={onBlur} keyboardType="email-address" autoCapitalize="none" error={errors.email?.message} />
           )} />
           <SelectPicker
             label="Package"
@@ -129,6 +190,14 @@ const EditStudentScreen: React.FC = () => {
             onSelect={setSelectedPackage}
             isDark={isDark}
           />
+          {selectedPackage && selectedPackage !== student.package_id && (
+            <View style={styles.expiryNote}>
+              <MaterialCommunityIcons name="information-outline" size={14} color={COLORS.info} />
+              <Text style={[styles.expiryNoteText, {color: COLORS.info}]}>
+                Expiry will be recalculated from joining date ({dayjs(student.joining_date).format('DD MMM YYYY')}).
+              </Text>
+            </View>
+          )}
           <Controller control={control} name="notes" render={({field: {onChange, value}}) => (
             <AppInput label="Notes" value={value || ''} onChangeText={onChange} multiline numberOfLines={3} />
           )} />
@@ -142,11 +211,24 @@ const EditStudentScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
+  loadingCenter: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   photoContainer: {alignSelf: 'center', marginBottom: SPACING.md},
   photo: {width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: COLORS.primary},
   photoPlaceholder: {width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center'},
   section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
+  expiryNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: COLORS.info + '15',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.info,
+  },
+  expiryNoteText: {flex: 1, fontSize: 12, lineHeight: 17},
   submitBtn: {marginTop: SPACING.sm},
 });
 

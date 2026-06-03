@@ -6,11 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
-  Image,
 } from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {Card, Avatar, Chip, Menu, Divider} from 'react-native-paper';
+import {Card, Menu} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 import dayjs from 'dayjs';
@@ -25,6 +25,7 @@ import AppHeader from '../../components/common/AppHeader';
 import StatusBadge from '../../components/common/StatusBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import AppButton from '../../components/common/AppButton';
+import AvatarWithFallback from '../../components/common/AvatarWithFallback';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'StudentDetail'>;
 type Route = RouteProp<RootStackParamList, 'StudentDetail'>;
@@ -36,6 +37,7 @@ const StudentDetailScreen: React.FC = () => {
   const {isDark} = useThemeStore();
   const {deleteStudent} = useStudentStore();
 
+  const insets = useSafeAreaInsets();
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -87,8 +89,8 @@ const StudentDetailScreen: React.FC = () => {
     : null;
   const isExpired = daysLeft !== null && daysLeft < 0;
 
-  const InfoRow = ({label, value, icon}: {label: string; value: string; icon: string}) => (
-    <View style={styles.infoRow}>
+  const InfoRow = ({label, value, icon, first}: {label: string; value: string; icon: string; first?: boolean}) => (
+    <View style={[styles.infoRow, !first && styles.infoRowBorder]}>
       <MaterialCommunityIcons name={icon} size={18} color={COLORS.primary} />
       <View style={styles.infoContent}>
         <Text style={[styles.infoLabel, {color: subColor}]}>{label}</Text>
@@ -145,16 +147,7 @@ const StudentDetailScreen: React.FC = () => {
         {/* Profile Card */}
         <Card style={[styles.profileCard, {backgroundColor: cardBg}]}>
           <Card.Content style={styles.profileContent}>
-            {student.image ? (
-              <Image source={{uri: student.image}} style={styles.avatar} />
-            ) : (
-              <Avatar.Text
-                size={80}
-                label={student.name.slice(0, 2).toUpperCase()}
-                style={{backgroundColor: COLORS.primary + '30'}}
-                labelStyle={{color: COLORS.primary, fontSize: 24}}
-              />
-            )}
+            <AvatarWithFallback uri={student.image} name={student.name} size={80} />
             <Text style={[styles.studentName, {color: textColor}]}>
               {student.name}
             </Text>
@@ -171,13 +164,16 @@ const StudentDetailScreen: React.FC = () => {
                 }
               />
               {student.package && (
-                <Chip
-                  icon="package-variant"
-                  compact
-                  style={{backgroundColor: COLORS.primary + '20'}}
-                  textStyle={{color: COLORS.primary, fontSize: 11}}>
-                  {student.package.type}
-                </Chip>
+                <View style={styles.categoryBadge}>
+                  <MaterialCommunityIcons
+                    name="package-variant"
+                    size={11}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.categoryText}>
+                    {student.package.name}
+                  </Text>
+                </View>
               )}
             </View>
 
@@ -198,10 +194,10 @@ const StudentDetailScreen: React.FC = () => {
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[styles.actionBtn, {backgroundColor: COLORS.warning + '20'}]}
+                style={[styles.actionBtn, {backgroundColor: '#25D36620'}]}
                 onPress={() => Linking.openURL(`https://wa.me/${student.phone}`)}>
-                <MaterialCommunityIcons name="whatsapp" size={20} color={COLORS.warning} />
-                <Text style={[styles.actionText, {color: COLORS.warning}]}>WhatsApp</Text>
+                <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
+                <Text style={[styles.actionText, {color: '#25D366'}]}>WhatsApp</Text>
               </TouchableOpacity>
             </View>
           </Card.Content>
@@ -257,6 +253,7 @@ const StudentDetailScreen: React.FC = () => {
               label="Joining Date"
               value={dayjs(student.joining_date).format('DD MMM YYYY')}
               icon="calendar-today"
+              first
             />
             <InfoRow
               label="Expiry Date"
@@ -293,7 +290,7 @@ const StudentDetailScreen: React.FC = () => {
         <Card style={[styles.card, {backgroundColor: cardBg}]}>
           <Card.Title title="Contact Info" titleVariant="titleMedium" />
           <Card.Content>
-            <InfoRow label="Phone" value={student.phone} icon="phone" />
+            <InfoRow label="Phone" value={student.phone} icon="phone" first />
             <InfoRow
               label="Email"
               value={student.email || 'N/A'}
@@ -307,7 +304,7 @@ const StudentDetailScreen: React.FC = () => {
           <Card style={[styles.card, {backgroundColor: cardBg}]}>
             <Card.Title title="Assigned Trainer" titleVariant="titleMedium" />
             <Card.Content>
-              <InfoRow label="Name" value={student.trainer.name} icon="account-tie" />
+              <InfoRow label="Name" value={student.trainer.name} icon="account-tie" first />
               <InfoRow label="Phone" value={student.trainer.phone || 'N/A'} icon="phone" />
             </Card.Content>
           </Card>
@@ -317,11 +314,11 @@ const StudentDetailScreen: React.FC = () => {
         <Card style={[styles.card, {backgroundColor: cardBg}]}>
           <Card.Title title="Verification" titleVariant="titleMedium" />
           <Card.Content>
-            <StatusBadge status={student.verification_status} />
             <InfoRow
               label="Status"
               value={student.verification_status}
               icon="shield-check"
+              first
             />
           </Card.Content>
         </Card>
@@ -335,6 +332,16 @@ const StudentDetailScreen: React.FC = () => {
           </Card>
         )}
       </ScrollView>
+
+      {/* Renew Membership — sticky bottom action */}
+      <View style={[styles.renewBar, {paddingBottom: insets.bottom + SPACING.sm}]}>
+        <AppButton
+          title="Renew Membership"
+          onPress={() => navigation.navigate('RenewStudent', {studentId: student.id})}
+          icon="refresh"
+          style={styles.renewBtn}
+        />
+      </View>
 
       <ConfirmDialog
         visible={deleteDialog}
@@ -352,12 +359,31 @@ const StudentDetailScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  content: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  renewBar: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
+  },
+  renewBtn: {marginBottom: 0},
+  content: {padding: SPACING.md, paddingBottom: SPACING.md},
   profileCard: {borderRadius: BORDER_RADIUS.xl, marginBottom: SPACING.md, elevation: 3},
   profileContent: {alignItems: 'center', paddingVertical: SPACING.lg},
   avatar: {width: 80, height: 80, borderRadius: 40, marginBottom: SPACING.sm},
   studentName: {fontSize: 22, fontWeight: '700', marginTop: SPACING.sm, marginBottom: SPACING.sm},
-  badgeRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md},
+  badgeRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md},
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '20',
+  },
+  categoryText: {fontSize: 12, fontWeight: '600', color: COLORS.primary},
   quickActions: {flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.sm},
   actionBtn: {
     alignItems: 'center',
@@ -372,8 +398,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
+  },
+  infoRowBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
   },
   infoContent: {flex: 1},
   infoLabel: {fontSize: 11},

@@ -9,9 +9,11 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-import {Card, Avatar, Chip} from 'react-native-paper';
+import {Card, Chip} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
@@ -25,6 +27,7 @@ import AppHeader from '../../components/common/AppHeader';
 import EmptyState from '../../components/common/EmptyState';
 import StatusBadge from '../../components/common/StatusBadge';
 import AppButton from '../../components/common/AppButton';
+import AvatarWithFallback from '../../components/common/AvatarWithFallback';
 
 const TABS = ['Pending', 'Approved', 'Rejected', 'All'];
 
@@ -40,11 +43,13 @@ const VerificationListScreen: React.FC = () => {
     rejectVerification,
   } = useStudentStore();
 
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('Pending');
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<VerificationRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
@@ -56,8 +61,15 @@ const VerificationListScreen: React.FC = () => {
 
   const load = (tab: string) => {
     if (gym) {
-      fetchVerifications(gym.id, tab === 'All' ? undefined : tab);
+      const trainerFilter = user?.role === 'Trainer' ? user.id : undefined;
+      fetchVerifications(gym.id, tab === 'All' ? undefined : tab, trainerFilter);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    load(activeTab);
+    setRefreshing(false);
   };
 
   const handleApprove = async (request: VerificationRequest) => {
@@ -97,11 +109,10 @@ const VerificationListScreen: React.FC = () => {
     <Card style={[styles.card, {backgroundColor: cardBg}]}>
       <Card.Content>
         <View style={styles.cardHeader}>
-          <Avatar.Text
+          <AvatarWithFallback
+            uri={item.student?.image}
+            name={item.student?.name || 'S'}
             size={44}
-            label={(item.student?.name || 'S').slice(0, 2).toUpperCase()}
-            style={{backgroundColor: COLORS.primary + '30'}}
-            labelStyle={{color: COLORS.primary, fontSize: 14}}
           />
           <View style={styles.studentInfo}>
             <Text style={[styles.studentName, {color: textColor}]} numberOfLines={1}>
@@ -149,10 +160,11 @@ const VerificationListScreen: React.FC = () => {
         {/* Trainer */}
         {item.trainer && (
           <View style={styles.trainerRow}>
-            <MaterialCommunityIcons
-              name="account-tie"
-              size={14}
-              color={COLORS.textSecondary}
+            <AvatarWithFallback
+              uri={item.trainer.avatar}
+              name={item.trainer.name}
+              size={22}
+              color={COLORS.trainerColor}
             />
             <Text style={[styles.trainerText, {color: COLORS.textSecondary}]}>
               Added by: {item.trainer.name}
@@ -220,7 +232,14 @@ const VerificationListScreen: React.FC = () => {
         data={verificationRequests}
         keyExtractor={item => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, {paddingBottom: SPACING.xxl + insets.bottom}]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+          />
+        }
         ListEmptyComponent={
           <EmptyState
             icon="account-clock-outline"
@@ -244,7 +263,7 @@ const VerificationListScreen: React.FC = () => {
         onRequestClose={() => setRejectModalVisible(false)}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View
             style={[
               styles.modalSheet,
@@ -307,7 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   tabText: {fontSize: 13, fontWeight: '600'},
-  list: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  list: {padding: SPACING.md},
   card: {
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.sm,

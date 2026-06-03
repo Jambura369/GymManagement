@@ -6,13 +6,16 @@ import messaging from '@react-native-firebase/messaging';
 export const fetchNotifications = async (
   gymId: string,
   userId: string,
+  userRole: string,
 ): Promise<ApiResponse<Notification[]>> => {
   try {
     const {data, error} = await supabase
       .from('notifications')
       .select('*')
       .eq('gym_id', gymId)
-      .or(`target_user_id.eq.${userId},target_user_id.is.null`)
+      .or(
+        `target_user_id.eq.${userId},and(target_user_id.is.null,target_role.in.(${userRole},All))`,
+      )
       .order('created_at', {ascending: false})
       .limit(50);
 
@@ -37,25 +40,38 @@ export const markNotificationRead = async (
 export const markAllRead = async (
   gymId: string,
   userId: string,
+  userRole: string,
 ): Promise<void> => {
   await supabase
     .from('notifications')
     .update({is_read: true})
     .eq('gym_id', gymId)
-    .or(`target_user_id.eq.${userId},target_user_id.is.null`);
+    .or(
+      `target_user_id.eq.${userId},and(target_user_id.is.null,target_role.in.(${userRole},All))`,
+    );
+};
+
+// ---- Delete a notification ----
+export const deleteNotification = async (
+  notificationId: string,
+): Promise<void> => {
+  await supabase.from('notifications').delete().eq('id', notificationId);
 };
 
 // ---- Get unread count ----
 export const getUnreadCount = async (
   gymId: string,
   userId: string,
+  userRole: string,
 ): Promise<number> => {
   const {count} = await supabase
     .from('notifications')
     .select('*', {count: 'exact', head: true})
     .eq('gym_id', gymId)
     .eq('is_read', false)
-    .or(`target_user_id.eq.${userId},target_user_id.is.null`);
+    .or(
+      `target_user_id.eq.${userId},and(target_user_id.is.null,target_role.in.(${userRole},All))`,
+    );
   return count || 0;
 };
 

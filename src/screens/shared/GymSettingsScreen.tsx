@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {Card, Switch} from 'react-native-paper';
-import {launchImageLibrary} from 'react-native-image-picker';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {showImagePicker} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -29,6 +30,7 @@ const GymSettingsScreen: React.FC = () => {
   const {gym, user, updateGym} = useAuthStore();
   const {isDark, toggleTheme} = useThemeStore();
 
+  const insets = useSafeAreaInsets();
   const [gymName, setGymName] = useState(gym?.gym_name || '');
   const [address, setAddress] = useState(gym?.address || '');
   const [phone, setPhone] = useState(gym?.phone || '');
@@ -40,34 +42,65 @@ const GymSettingsScreen: React.FC = () => {
   const textColor = isDark ? COLORS.textDark : COLORS.text;
   const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
-  const pickImage = async (type: 'logo' | 'qr') => {
-    const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8});
-    if (!result.didCancel && result.assets?.[0]?.uri) {
-      if (type === 'logo') setGymLogo(result.assets[0].uri);
-      else setPaymentQr(result.assets[0].uri);
-    }
+  const pickImage = (type: 'logo' | 'qr') => {
+    showImagePicker({quality: 0.8}, uri => {
+      if (type === 'logo') setGymLogo(uri);
+      else setPaymentQr(uri);
+    });
   };
 
   const handleSave = async () => {
     if (!gym) return;
+
+    if (!gymName.trim()) {
+      Toast.show({type: 'error', text1: 'Validation Error', text2: 'Gym name cannot be empty'});
+      return;
+    }
+    if (!phone.trim()) {
+      Toast.show({type: 'error', text1: 'Validation Error', text2: 'Phone number cannot be empty'});
+      return;
+    }
+    if (!address.trim()) {
+      Toast.show({type: 'error', text1: 'Validation Error', text2: 'Address cannot be empty'});
+      return;
+    }
+
     setLoading(true);
 
     const updates: Record<string, any> = {
-      gym_name: gymName,
-      address,
-      phone,
+      gym_name: gymName.trim(),
+      address: address.trim(),
+      phone: phone.trim(),
     };
 
-    // Upload new logo if changed
+    // Upload new logo if changed — show error but continue saving other fields
     if (gymLogo && gymLogo !== gym.gym_logo) {
-      const result = await uploadImage(gymLogo, SUPABASE_BUCKETS.GYM_LOGOS, `${gym.id}/logo`);
-      if (result.data) updates.gym_logo = result.data;
+      const result = await uploadImage(
+        gymLogo,
+        SUPABASE_BUCKETS.GYM_LOGOS,
+        `${gym.id}/logo`,
+        gym.gym_logo || undefined,
+      );
+      if (result.data) {
+        updates.gym_logo = result.data;
+      } else {
+        Toast.show({type: 'error', text1: 'Logo upload failed', text2: result.error || undefined});
+      }
     }
 
     // Upload new QR if changed
     if (paymentQr && paymentQr !== gym.payment_qr) {
-      const result = await uploadImage(paymentQr, SUPABASE_BUCKETS.PAYMENT_QR, `${gym.id}/qr`);
-      if (result.data) updates.payment_qr = result.data;
+      const result = await uploadImage(
+        paymentQr,
+        SUPABASE_BUCKETS.PAYMENT_QR,
+        `${gym.id}/qr`,
+        gym.payment_qr || undefined,
+      );
+      if (result.data) {
+        updates.payment_qr = result.data;
+      } else {
+        Toast.show({type: 'error', text1: 'QR upload failed', text2: result.error || undefined});
+      }
     }
 
     const result = await updateGymSettings(gym.id, updates);
@@ -77,7 +110,7 @@ const GymSettingsScreen: React.FC = () => {
       updateGym(updates);
       Toast.show({type: 'success', text1: 'Settings Saved!'});
     } else {
-      Toast.show({type: 'error', text1: 'Failed', text2: result.error});
+      Toast.show({type: 'error', text1: 'Failed to save', text2: result.error});
     }
   };
 
@@ -117,14 +150,17 @@ const GymSettingsScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: bgColor}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader
         title="Gym Settings"
         onBack={() => navigation.goBack()}
         isDark={isDark}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
 
         {/* Gym Branding */}
         <Card style={[styles.card, {backgroundColor: cardBg}]}>
@@ -134,7 +170,7 @@ const GymSettingsScreen: React.FC = () => {
             <View style={styles.imageRow}>
               <View style={styles.imageSection}>
                 <Text style={[styles.imageLabel, {color: COLORS.textSecondary}]}>Gym Logo</Text>
-                <TouchableOpacity onPress={() => pickImage('logo')}>
+                <TouchableOpacity onPress={() => pickImage('logo')} activeOpacity={0.7}>
                   {gymLogo ? (
                     <Image source={{uri: gymLogo}} style={styles.logo} />
                   ) : (
@@ -150,7 +186,7 @@ const GymSettingsScreen: React.FC = () => {
 
               <View style={styles.imageSection}>
                 <Text style={[styles.imageLabel, {color: COLORS.textSecondary}]}>Payment QR</Text>
-                <TouchableOpacity onPress={() => pickImage('qr')}>
+                <TouchableOpacity onPress={() => pickImage('qr')} activeOpacity={0.7}>
                   {paymentQr ? (
                     <Image source={{uri: paymentQr}} style={styles.logo} />
                   ) : (
@@ -237,7 +273,7 @@ const GymSettingsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
   card: {borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, elevation: 2},
   imageRow: {flexDirection: 'row', gap: SPACING.xl, justifyContent: 'center', marginBottom: SPACING.md},
   imageSection: {alignItems: 'center'},

@@ -313,6 +313,15 @@ export interface AddUserForm {
   phone: string;
   role: UserRole;
   password: string;
+  avatar?: string;
+}
+
+export interface RenewStudentForm {
+  joining_date: string;
+  package_id: string;
+  payment_type: PaymentMethod;
+  amount_paid: number;
+  notes?: string;
 }
 
 // ---- Filter Types ----
@@ -345,14 +354,18 @@ export interface PaymentFilter {
 export type RootStackParamList = {
   Login: undefined;
   RegisterGym: undefined;
+  ForgotPassword: undefined;
   MainTabs: undefined;
   StudentDetail: { studentId: string };
   AddStudent: undefined;
   EditStudent: { studentId: string };
+  RenewStudent: { studentId: string };
   VerificationList: undefined;
   AddExpense: undefined;
   EditExpense: { expenseId: string };
   AddSalary: undefined;
+  EditSalary: {salaryId: string};
+  ExpiryList: {trainerId?: string; expiryFilter?: 'expiring_3' | 'expiring_7' | 'expired'};
   PackageList: undefined;
   AddPackage: undefined;
   EditPackage: { packageId: string };

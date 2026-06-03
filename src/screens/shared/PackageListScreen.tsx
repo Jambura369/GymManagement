@@ -304,9 +304,9 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   filterChip: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 6,
-    borderRadius: BORDER_RADIUS.round,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
   },
   filterChipText: {fontSize: 13, fontWeight: '600'},

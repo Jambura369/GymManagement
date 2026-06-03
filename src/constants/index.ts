@@ -110,6 +110,7 @@ export const STORAGE_KEYS = {
 export const SUPABASE_BUCKETS = {
   GYM_LOGOS: 'gym-logos',
   STUDENT_IMAGES: 'student-images',
+  STAFF_IMAGES: 'staff-images',
   PAYMENT_QR: 'payment-qr',
   RECEIPTS: 'receipts',
 };

@@ -5,6 +5,7 @@ import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {Chip} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import {useAuthStore} from '../../store/authStore';
@@ -33,6 +34,7 @@ const AddPackageScreen: React.FC = () => {
   const navigation = useNavigation();
   const {gym} = useAuthStore();
   const {isDark} = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
@@ -59,9 +61,9 @@ const AddPackageScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader title="Add Package" onBack={() => navigation.goBack()} isDark={isDark} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Package Type</Text>
           <View style={styles.chipRow}>
@@ -105,7 +107,7 @@ const AddPackageScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
   section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: SPACING.md},
   chipRow: {flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs},

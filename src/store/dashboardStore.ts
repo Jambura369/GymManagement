@@ -12,6 +12,7 @@ interface DashboardState {
   fetchStats: (gymId: string) => Promise<void>;
   fetchChartData: (gymId: string) => Promise<void>;
   refresh: (gymId: string) => Promise<void>;
+  refreshIfStale: (gymId: string) => Promise<void>;
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -40,7 +41,15 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
+  // Always fetches fresh data (used by pull-to-refresh)
   refresh: async (gymId) => {
     await Promise.all([get().fetchStats(gymId), get().fetchChartData(gymId)]);
+  },
+
+  // Fetches only when cache is expired (used on screen focus)
+  refreshIfStale: async (gymId) => {
+    const {lastFetched} = get();
+    if (lastFetched && Date.now() - lastFetched < CACHE_DURATION) return;
+    await get().refresh(gymId);
   },
 }));

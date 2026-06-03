@@ -2,9 +2,9 @@ import React, {useEffect, useState} from 'react';
 import {StyleSheet, View, Text, FlatList, TouchableOpacity, Alert} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {FAB, Card, Avatar, Switch, Chip} from 'react-native-paper';
+import {FAB, Card, Switch} from 'react-native-paper';
 import Toast from 'react-native-toast-message';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
@@ -14,13 +14,15 @@ import {fetchUsers, toggleUserActive} from '../../services/userService';
 import AppHeader from '../../components/common/AppHeader';
 import EmptyState from '../../components/common/EmptyState';
 import RoleBadge from '../../components/common/RoleBadge';
+import AvatarWithFallback from '../../components/common/AvatarWithFallback';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const UserManagementScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const {gym} = useAuthStore();
+  const {gym, user: currentUser} = useAuthStore();
   const {isDark} = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +43,10 @@ const UserManagementScreen: React.FC = () => {
   };
 
   const handleToggleActive = async (user: User) => {
+    if (user.id === currentUser?.id) {
+      Alert.alert('Not Allowed', 'You cannot deactivate your own account.');
+      return;
+    }
     const action = user.is_active ? 'deactivate' : 'activate';
     Alert.alert('Confirm', `Are you sure you want to ${action} ${user.name}?`, [
       {text: 'Cancel'},
@@ -60,11 +66,11 @@ const UserManagementScreen: React.FC = () => {
   const renderUser = ({item}: {item: User}) => (
     <Card style={[styles.card, {backgroundColor: cardBg}]}>
       <Card.Content style={styles.cardContent}>
-        <Avatar.Text
+        <AvatarWithFallback
+          uri={item.avatar}
+          name={item.name}
           size={44}
-          label={item.name.slice(0, 2).toUpperCase()}
-          style={{backgroundColor: (ROLE_COLORS[item.role] || COLORS.primary) + '30'}}
-          labelStyle={{color: ROLE_COLORS[item.role] || COLORS.primary, fontSize: 14}}
+          color={ROLE_COLORS[item.role] || COLORS.primary}
         />
         <View style={styles.userInfo}>
           <Text style={[styles.name, {color: textColor}]}>{item.name}</Text>
@@ -77,6 +83,7 @@ const UserManagementScreen: React.FC = () => {
             value={item.is_active}
             onValueChange={() => handleToggleActive(item)}
             color={COLORS.success}
+            disabled={item.id === currentUser?.id}
           />
         </View>
       </Card.Content>
@@ -91,7 +98,7 @@ const UserManagementScreen: React.FC = () => {
         data={users}
         keyExtractor={item => item.id}
         renderItem={renderUser}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, {paddingBottom: 80 + insets.bottom}]}
         ListEmptyComponent={
           <EmptyState icon="account-group-outline" title="No staff members" subtitle="Add managers and trainers" isDark={isDark} />
         }
@@ -110,7 +117,7 @@ const UserManagementScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  list: {padding: SPACING.md, paddingBottom: 80},
+  list: {padding: SPACING.md},
   card: {borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.sm, elevation: 2},
   cardContent: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm},
   userInfo: {flex: 1, gap: 2},

@@ -1,15 +1,17 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {
   StyleSheet,
   View,
   Text,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {FAB, Card, Chip, Menu} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 import dayjs from 'dayjs';
@@ -51,8 +53,10 @@ const ExpenseListScreen: React.FC = () => {
     setFilter,
   } = useExpenseStore();
 
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
@@ -76,8 +80,11 @@ const ExpenseListScreen: React.FC = () => {
 
   const onSearchChange = (text: string) => {
     setSearch(text);
-    setFilter({search: text});
-    load();
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setFilter({search: text});
+      load();
+    }, 350);
   };
 
   const onCategoryFilter = (cat: string) => {
@@ -206,36 +213,49 @@ const ExpenseListScreen: React.FC = () => {
       />
 
       {/* Category Filters */}
-      <View style={styles.filterRow}>
-        <FlatList
-          data={CATEGORY_FILTERS}
-          horizontal
-          keyExtractor={item => item}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterList}
-          renderItem={({item}) => (
-            <Chip
-              selected={activeCategory === item}
-              onPress={() => onCategoryFilter(item)}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}>
+        {CATEGORY_FILTERS.map(cat => {
+          const isActive = activeCategory === cat;
+          const activeColor =
+            cat === 'All'
+              ? COLORS.primary
+              : EXPENSE_CATEGORY_COLORS[cat] || COLORS.primary;
+          return (
+            <TouchableOpacity
+              key={cat}
+              onPress={() => onCategoryFilter(cat)}
+              activeOpacity={0.75}
               style={[
-                styles.filterChip,
-                activeCategory === item && {
-                  backgroundColor:
-                    item === 'All'
-                      ? COLORS.primary
-                      : EXPENSE_CATEGORY_COLORS[item] || COLORS.primary,
-                },
-              ]}
-              textStyle={{
-                color: activeCategory === item ? '#FFF' : isDark ? COLORS.textDark : COLORS.text,
-                fontSize: 12,
-              }}
-              compact>
-              {item}
-            </Chip>
-          )}
-        />
-      </View>
+                styles.filterTab,
+                isActive
+                  ? {backgroundColor: activeColor, borderColor: activeColor}
+                  : {
+                      backgroundColor: isDark ? COLORS.cardDark : '#F3F4F6',
+                      borderColor: isDark ? COLORS.border : '#E5E7EB',
+                    },
+              ]}>
+              <Text
+                style={[
+                  styles.filterTabText,
+                  {
+                    color: isActive
+                      ? '#FFF'
+                      : isDark
+                      ? COLORS.textDark
+                      : '#374151',
+                    fontWeight: isActive ? '700' : '500',
+                  },
+                ]}>
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {isLoading && expenses.length === 0 ? (
         <CardSkeleton count={5} isDark={isDark} />
@@ -244,7 +264,7 @@ const ExpenseListScreen: React.FC = () => {
           data={expenses}
           keyExtractor={item => item.id}
           renderItem={renderExpense}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, {paddingBottom: 80 + insets.bottom}]}
           ListEmptyComponent={
             <EmptyState
               icon="cash-remove"
@@ -293,10 +313,23 @@ const ExpenseListScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  filterRow: {paddingHorizontal: SPACING.md, paddingBottom: SPACING.xs},
-  filterList: {gap: SPACING.xs, paddingRight: SPACING.md},
-  filterChip: {height: 30},
-  list: {padding: SPACING.md, paddingBottom: 80},
+  filterScroll: {flexGrow: 0, flexShrink: 0},
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    gap: 8,
+    alignItems: 'center',
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  filterTabText: {fontSize: 13},
+  list: {padding: SPACING.md},
   card: {borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.sm, elevation: 2},
   cardContent: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm},
   iconContainer: {

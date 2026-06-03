@@ -12,9 +12,8 @@ import {useThemeStore, lightTheme, darkTheme} from './src/store/themeStore';
 import {setupFCMListeners, requestFCMPermission} from './src/services/notificationService';
 import {COLORS} from './src/constants';
 
-// Suppress known non-critical warnings
+// Suppress known non-critical third-party warnings
 LogBox.ignoreLogs([
-  'Warning: ...',
   'Non-serializable values were found in the navigation state',
 ]);
 

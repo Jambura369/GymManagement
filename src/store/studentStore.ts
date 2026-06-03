@@ -1,15 +1,18 @@
 import {create} from 'zustand';
-import {Student, StudentFilter, VerificationRequest} from '../types';
+import {Student, StudentFilter, VerificationRequest, UserRole, RenewStudentForm} from '../types';
 import {
   fetchStudents,
   fetchVerificationRequests,
   addStudent as addStudentService,
   updateStudent as updateStudentService,
   deleteStudent as deleteStudentService,
+  renewStudent as renewStudentService,
   approveVerification as approveVerificationService,
   rejectVerification as rejectVerificationService,
 } from '../services/studentService';
 import {AddStudentForm} from '../types';
+import {useAuthStore} from './authStore';
+import {useDashboardStore} from './dashboardStore';
 
 interface StudentState {
   students: Student[];
@@ -25,12 +28,13 @@ interface StudentState {
 
   fetchStudents: (gymId: string, reset?: boolean) => Promise<void>;
   loadMore: (gymId: string) => Promise<void>;
-  addStudent: (gymId: string, createdBy: string, form: AddStudentForm) => Promise<string | null>;
+  addStudent: (gymId: string, createdBy: string, createdByRole: UserRole, form: AddStudentForm) => Promise<{id: string | null; error: string | null}>;
+  renewStudent: (studentId: string, gymId: string, renewedBy: string, renewedByRole: UserRole, form: RenewStudentForm) => Promise<boolean>;
   updateStudent: (studentId: string, updates: Partial<Student>) => Promise<boolean>;
   deleteStudent: (studentId: string) => Promise<boolean>;
   setFilter: (filter: Partial<StudentFilter>) => void;
   clearFilter: () => void;
-  fetchVerifications: (gymId: string, status?: string) => Promise<void>;
+  fetchVerifications: (gymId: string, status?: string, trainerId?: string) => Promise<void>;
   approveVerification: (verificationId: string, verifiedBy: string) => Promise<boolean>;
   rejectVerification: (verificationId: string, verifiedBy: string, reason: string) => Promise<boolean>;
 }
@@ -92,18 +96,33 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  addStudent: async (gymId, createdBy, form) => {
-    const result = await addStudentService(gymId, createdBy, form);
+  addStudent: async (gymId, createdBy, createdByRole, form) => {
+    const result = await addStudentService(gymId, createdBy, createdByRole, form);
     if (result.data) {
-      // Prepend to list
       set(state => ({students: [result.data!, ...state.students]}));
-      return result.data.id;
+      useDashboardStore.getState().refresh(gymId);
+      return {id: result.data.id, error: null};
     }
-    return null;
+    return {id: null, error: result.error};
+  },
+
+  renewStudent: async (studentId, gymId, renewedBy, renewedByRole, form) => {
+    const result = await renewStudentService(studentId, gymId, renewedBy, renewedByRole, form);
+    if (result.data) {
+      set(state => ({
+        students: state.students.map(s =>
+          s.id === studentId ? {...s, ...result.data!} : s,
+        ),
+      }));
+      useDashboardStore.getState().refresh(gymId);
+      return true;
+    }
+    return false;
   },
 
   updateStudent: async (studentId, updates) => {
-    const result = await updateStudentService(studentId, updates);
+    const gymId = useAuthStore.getState().gym?.id;
+    const result = await updateStudentService(studentId, updates, gymId);
     if (result.data) {
       set(state => ({
         students: state.students.map(s =>
@@ -116,11 +135,13 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   },
 
   deleteStudent: async (studentId) => {
-    const result = await deleteStudentService(studentId);
+    const gymId = useAuthStore.getState().gym?.id;
+    const result = await deleteStudentService(studentId, gymId);
     if (!result.error) {
       set(state => ({
         students: state.students.filter(s => s.id !== studentId),
       }));
+      if (gymId) useDashboardStore.getState().refresh(gymId);
       return true;
     }
     return false;
@@ -131,9 +152,9 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
   clearFilter: () => set({filter: {}}),
 
-  fetchVerifications: async (gymId, status) => {
+  fetchVerifications: async (gymId, status, trainerId) => {
     set({verificationLoading: true});
-    const result = await fetchVerificationRequests(gymId, status);
+    const result = await fetchVerificationRequests(gymId, status, trainerId);
     set({
       verificationRequests: result.data || [],
       verificationLoading: false,

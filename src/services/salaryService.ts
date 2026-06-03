@@ -65,6 +65,34 @@ export const paySalary = async (
   }
 };
 
+export const updateSalary = async (
+  salaryId: string,
+  updates: Partial<{salary_amount: number; payment_date: string; payment_type: string; notes: string | null}>,
+): Promise<ApiResponse<TrainerSalary>> => {
+  try {
+    const {data, error} = await supabase
+      .from('trainer_salary')
+      .update(updates)
+      .eq('id', salaryId)
+      .select()
+      .single();
+    if (error) return {data: null, error: error.message};
+    return {data: data as TrainerSalary, error: null};
+  } catch (err: any) {
+    return {data: null, error: err.message};
+  }
+};
+
+export const deleteSalary = async (salaryId: string): Promise<ApiResponse<null>> => {
+  try {
+    const {error} = await supabase.from('trainer_salary').delete().eq('id', salaryId);
+    if (error) return {data: null, error: error.message};
+    return {data: null, error: null};
+  } catch (err: any) {
+    return {data: null, error: err.message};
+  }
+};
+
 export const getSalaryTotal = async (
   gymId: string,
   dateFrom: string,

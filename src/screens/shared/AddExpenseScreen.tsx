@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   StyleSheet,
   View,
@@ -7,15 +7,18 @@ import {
   Platform,
   TouchableOpacity,
   Text,
+  Image,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {Chip} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import DatePickerModal from '../../components/common/DatePickerModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {showImagePicker} from '../../utils/imagePicker';
 import dayjs from 'dayjs';
 
 import {useExpenseStore} from '../../store/expenseStore';
@@ -48,13 +51,15 @@ const AddExpenseScreen: React.FC = () => {
   const {user, gym} = useAuthStore();
   const {isDark} = useThemeStore();
   const {addExpense} = useExpenseStore();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [receiptImage, setReceiptImage] = useState<string | null>(null);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
 
-  const {control, handleSubmit, setValue, watch, formState: {errors}} =
+  const {control, handleSubmit, setValue, watch, formState: {errors, isDirty}} =
     useForm<FormData>({
       resolver: zodResolver(schema),
       defaultValues: {
@@ -69,11 +74,34 @@ const AddExpenseScreen: React.FC = () => {
   const expenseDate = watch('expense_date');
   const selectedCategory = watch('category');
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', e => {
+      if (!isDirty && !receiptImage) return;
+      e.preventDefault();
+      const {Alert} = require('react-native');
+      Alert.alert(
+        'Discard changes?',
+        'You have unsaved changes. Are you sure you want to go back?',
+        [
+          {text: 'Keep Editing', style: 'cancel'},
+          {text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action)},
+        ],
+      );
+    });
+    return unsubscribe;
+  }, [navigation, isDirty, receiptImage]);
+
+
+  const pickReceipt = () => {
+    showImagePicker({quality: 0.8, maxWidth: 1200, maxHeight: 1200}, uri =>
+      setReceiptImage(uri),
+    );
+  };
 
   const onSubmit = async (data: FormData) => {
     if (!gym || !user) return;
     setLoading(true);
-    const success = await addExpense(gym.id, user.id, data as any);
+    const success = await addExpense(gym.id, user.id, {...(data as any), receipt_image: receiptImage || undefined});
     setLoading(false);
     if (success) {
       Toast.show({type: 'success', text1: 'Expense Added!', text2: `₹${data.amount} recorded`});
@@ -86,11 +114,11 @@ const AddExpenseScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: bgColor}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader title="Add Expense" onBack={() => navigation.goBack()} isDark={isDark} />
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
@@ -206,6 +234,27 @@ const AddExpenseScreen: React.FC = () => {
           />
         </View>
 
+        {/* Receipt Image */}
+        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Receipt (Optional)</Text>
+          <TouchableOpacity style={styles.receiptPicker} onPress={pickReceipt}>
+            {receiptImage ? (
+              <Image source={{uri: receiptImage}} style={styles.receiptPreview} resizeMode="cover" />
+            ) : (
+              <View style={styles.receiptPlaceholder}>
+                <MaterialCommunityIcons name="camera-plus-outline" size={28} color={COLORS.placeholder} />
+                <Text style={styles.receiptPlaceholderText}>Add Receipt Photo</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {receiptImage && (
+            <TouchableOpacity onPress={() => setReceiptImage(null)} style={styles.removeReceiptBtn}>
+              <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
+              <Text style={[styles.removeReceiptText, {color: COLORS.error}]}>Remove Receipt</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <AppButton
           title="Save Expense"
           onPress={handleSubmit(onSubmit)}
@@ -220,7 +269,7 @@ const AddExpenseScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
   section: {
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
@@ -261,6 +310,21 @@ const styles = StyleSheet.create({
   dateLabel: {fontSize: 12, color: COLORS.textSecondary},
   dateValue: {fontSize: 15, fontWeight: '500', marginTop: 2},
   submitBtn: {marginTop: SPACING.sm},
+  receiptPicker: {borderRadius: BORDER_RADIUS.md, overflow: 'hidden'},
+  receiptPreview: {width: '100%', height: 160, borderRadius: BORDER_RADIUS.md},
+  receiptPlaceholder: {
+    height: 100,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  receiptPlaceholderText: {fontSize: 12, color: COLORS.placeholder},
+  removeReceiptBtn: {flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: SPACING.xs},
+  removeReceiptText: {fontSize: 12, fontWeight: '600'},
 });
 
 export default AddExpenseScreen;

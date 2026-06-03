@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 import DatePickerModal from '../../components/common/DatePickerModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {useExpenseStore} from '../../store/expenseStore';
 import {useThemeStore} from '../../store/themeStore';
@@ -42,6 +43,7 @@ const EditExpenseScreen: React.FC = () => {
   const route = useRoute<Route>();
   const {isDark} = useThemeStore();
   const {updateExpense} = useExpenseStore();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -96,11 +98,11 @@ const EditExpenseScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: bgColor}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader title="Edit Expense" onBack={() => navigation.goBack()} isDark={isDark} />
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
@@ -180,7 +182,7 @@ const EditExpenseScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
   section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: SPACING.md},
   categoryGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm},

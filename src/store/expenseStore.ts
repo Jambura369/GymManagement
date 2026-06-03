@@ -6,6 +6,7 @@ import {
   updateExpense as updateExpenseService,
   deleteExpense as deleteExpenseService,
 } from '../services/expenseService';
+import {useDashboardStore} from './dashboardStore';
 
 interface ExpenseState {
   expenses: Expense[];
@@ -79,6 +80,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const result = await addExpenseService(gymId, createdBy, form);
     if (result.data) {
       set(state => ({expenses: [result.data!, ...state.expenses]}));
+      useDashboardStore.getState().refresh(gymId);
       return true;
     }
     return false;
@@ -92,17 +94,22 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
           e.id === expenseId ? {...e, ...result.data!} : e,
         ),
       }));
+      // Refresh dashboard since amount may have changed
+      const gymId = get().expenses.find(e => e.id === expenseId)?.gym_id;
+      if (gymId) useDashboardStore.getState().refresh(gymId);
       return true;
     }
     return false;
   },
 
   deleteExpense: async (expenseId) => {
+    const gymId = get().expenses.find(e => e.id === expenseId)?.gym_id;
     const result = await deleteExpenseService(expenseId);
     if (!result.error) {
       set(state => ({
         expenses: state.expenses.filter(e => e.id !== expenseId),
       }));
+      if (gymId) useDashboardStore.getState().refresh(gymId);
       return true;
     }
     return false;

@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-import {Card, Chip} from 'react-native-paper';
+import {Card} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {LineChart, BarChart, PieChart} from 'react-native-chart-kit';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
@@ -37,6 +38,7 @@ const ReportsScreen: React.FC = () => {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [expenseSummary, setExpenseSummary] = useState<{total: number; by_category: Record<string, number>}>({total: 0, by_category: {}});
   const [salaryTotal, setSalaryTotal] = useState(0);
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
@@ -47,13 +49,35 @@ const ReportsScreen: React.FC = () => {
     const now = dayjs();
     switch (dateRange) {
       case 'This Month':
-        return {from: now.startOf('month').format('YYYY-MM-DD'), to: now.endOf('month').format('YYYY-MM-DD'), months: 1};
-      case 'Last 3 Months':
-        return {from: now.subtract(3, 'month').format('YYYY-MM-DD'), to: now.format('YYYY-MM-DD'), months: 3};
+        return {
+          from: now.startOf('month').format('YYYY-MM-DD'),
+          to: now.endOf('month').format('YYYY-MM-DD'),
+          months: 1,
+        };
+      case 'Last 3 Months': {
+        // Align with the monthly chart: start of the month 3 months ago → end of current month
+        const start = now.subtract(2, 'month').startOf('month');
+        return {
+          from: start.format('YYYY-MM-DD'),
+          to: now.endOf('month').format('YYYY-MM-DD'),
+          months: 3,
+        };
+      }
       case 'This Year':
-        return {from: now.startOf('year').format('YYYY-MM-DD'), to: now.endOf('year').format('YYYY-MM-DD'), months: 12};
-      default:
-        return {from: now.subtract(6, 'month').format('YYYY-MM-DD'), to: now.format('YYYY-MM-DD'), months: 6};
+        return {
+          from: now.startOf('year').format('YYYY-MM-DD'),
+          to: now.endOf('year').format('YYYY-MM-DD'),
+          months: now.month() + 1,
+        };
+      default: {
+        // Last 6 Months: start of the month 6 months ago → end of current month
+        const start = now.subtract(5, 'month').startOf('month');
+        return {
+          from: start.format('YYYY-MM-DD'),
+          to: now.endOf('month').format('YYYY-MM-DD'),
+          months: 6,
+        };
+      }
     }
   };
 
@@ -108,24 +132,40 @@ const ReportsScreen: React.FC = () => {
     <View style={[styles.container, {backgroundColor: bgColor}]}>
       <AppHeader title="Reports" onBack={() => navigation.goBack()} isDark={isDark} />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, {paddingBottom: SPACING.xxl + insets.bottom}]} showsVerticalScrollIndicator={false}>
 
         {/* Date Range Filter */}
-        <View style={styles.filterRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterList}>
-            {DATE_RANGES.map(range => (
-              <Chip
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
+          {DATE_RANGES.map(range => {
+            const isActive = dateRange === range;
+            return (
+              <TouchableOpacity
                 key={range}
-                selected={dateRange === range}
                 onPress={() => setDateRange(range)}
-                style={[styles.filterChip, dateRange === range && {backgroundColor: COLORS.primary}]}
-                textStyle={{color: dateRange === range ? '#FFF' : textColor, fontSize: 12}}
-                compact>
-                {range}
-              </Chip>
-            ))}
-          </ScrollView>
-        </View>
+                activeOpacity={0.75}
+                style={[
+                  styles.filterTab,
+                  isActive
+                    ? styles.filterTabActive
+                    : {
+                        backgroundColor: isDark ? COLORS.cardDark : '#F3F4F6',
+                        borderColor: isDark ? COLORS.border : '#E5E7EB',
+                      },
+                ]}>
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    {
+                      color: isActive ? '#FFF' : isDark ? COLORS.textDark : '#374151',
+                      fontWeight: isActive ? '700' : '500',
+                    },
+                  ]}>
+                  {range}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {/* Summary Cards */}
         <View style={styles.summaryRow}>
@@ -258,10 +298,23 @@ const ReportsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  content: {padding: SPACING.md, paddingBottom: SPACING.xxl},
-  filterRow: {marginBottom: SPACING.sm},
-  filterList: {gap: SPACING.xs},
-  filterChip: {height: 30},
+  content: {padding: SPACING.md},
+  filterScroll: {flexGrow: 0, flexShrink: 0, marginBottom: SPACING.sm},
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: SPACING.xs,
+    alignItems: 'center',
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  filterTabActive: {backgroundColor: COLORS.primary, borderColor: COLORS.primary},
+  filterTabText: {fontSize: 13},
   summaryRow: {flexDirection: 'row', gap: SPACING.xs, marginBottom: SPACING.md},
   summaryCard: {flex: 1, borderRadius: BORDER_RADIUS.md, elevation: 2},
   summaryContent: {alignItems: 'center', padding: SPACING.xs, gap: 2},

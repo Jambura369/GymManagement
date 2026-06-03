@@ -1,6 +1,7 @@
 import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useThemeStore} from '../store/themeStore';
 import {COLORS} from '../constants';
 
@@ -13,6 +14,7 @@ const Tab = createBottomTabNavigator();
 
 const AdminTabs: React.FC = () => {
   const {isDark} = useThemeStore();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -35,8 +37,8 @@ const AdminTabs: React.FC = () => {
           borderTopColor: isDark ? COLORS.borderDark : COLORS.border,
           borderTopWidth: 1,
           elevation: 8,
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 11,

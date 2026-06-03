@@ -5,6 +5,7 @@ import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {Chip} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import {useThemeStore} from '../../store/themeStore';
@@ -31,6 +32,7 @@ const EditPackageScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<Route>();
   const {isDark} = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -67,9 +69,9 @@ const EditPackageScreen: React.FC = () => {
   if (!loaded) return null;
 
   return (
-    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader title="Edit Package" onBack={() => navigation.goBack()} isDark={isDark} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled">
         <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Type</Text>
           <View style={styles.chipRow}>
@@ -92,7 +94,7 @@ const EditPackageScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
   section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', textTransform: 'uppercase', marginBottom: SPACING.md},
   chipRow: {flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs},

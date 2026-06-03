@@ -37,7 +37,6 @@ const DatePickerModal: React.FC<Props> = ({
   const cells: (number | null)[] = [];
   for (let i = 0; i < startDayOfWeek; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
 
   const bg = isDark ? COLORS.surfaceDark : COLORS.surface;
   const overlay = 'rgba(0,0,0,0.55)';

@@ -1,6 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {StyleSheet, View, Text, FlatList, TouchableOpacity} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Card} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
@@ -14,9 +16,11 @@ import {
   fetchNotifications,
   markNotificationRead,
   markAllRead,
+  deleteNotification,
 } from '../../services/notificationService';
 import AppHeader from '../../components/common/AppHeader';
 import EmptyState from '../../components/common/EmptyState';
+import {RootStackParamList} from '../../types';
 
 dayjs.extend(relativeTime);
 
@@ -34,10 +38,13 @@ const NOTIF_COLORS: Record<string, string> = {
   general: COLORS.info,
 };
 
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
 const NotificationsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const {user, gym} = useAuthStore();
   const {isDark} = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,23 +61,35 @@ const NotificationsScreen: React.FC = () => {
   const load = async () => {
     if (!gym || !user) return;
     setLoading(true);
-    const result = await fetchNotifications(gym.id, user.id);
+    const result = await fetchNotifications(gym.id, user.id, user.role);
     if (result.data) setNotifications(result.data);
     setLoading(false);
   };
 
   const handleRead = async (notif: Notification) => {
-    if (notif.is_read) return;
-    await markNotificationRead(notif.id);
-    setNotifications(prev =>
-      prev.map(n => n.id === notif.id ? {...n, is_read: true} : n),
-    );
+    if (!notif.is_read) {
+      await markNotificationRead(notif.id);
+      setNotifications(prev =>
+        prev.map(n => n.id === notif.id ? {...n, is_read: true} : n),
+      );
+    }
+    // Deep-link to relevant screen
+    if (notif.notification_type === 'verification' || notif.notification_type === 'verification_request') {
+      navigation.navigate('VerificationList');
+    } else if (notif.notification_type === 'expiry' && notif.reference_id) {
+      navigation.navigate('StudentDetail', {studentId: notif.reference_id});
+    }
   };
 
   const handleMarkAllRead = async () => {
     if (!gym || !user) return;
-    await markAllRead(gym.id, user.id);
+    await markAllRead(gym.id, user.id, user.role);
     setNotifications(prev => prev.map(n => ({...n, is_read: true})));
+  };
+
+  const handleDelete = async (notifId: string) => {
+    await deleteNotification(notifId);
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
   };
 
   const renderItem = ({item}: {item: Notification}) => {
@@ -106,9 +125,12 @@ const NotificationsScreen: React.FC = () => {
                 {dayjs(item.created_at).fromNow()}
               </Text>
             </View>
-            {!item.is_read && (
-              <View style={[styles.readDot, {backgroundColor: COLORS.primary}]} />
-            )}
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => handleDelete(item.id)}
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+              <MaterialCommunityIcons name="close" size={16} color={COLORS.textSecondary} />
+            </TouchableOpacity>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -137,7 +159,7 @@ const NotificationsScreen: React.FC = () => {
         data={notifications}
         keyExtractor={item => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, {paddingBottom: SPACING.xxl + insets.bottom}]}
         ListEmptyComponent={
           loading ? null : (
             <EmptyState
@@ -156,7 +178,7 @@ const NotificationsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  list: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  list: {padding: SPACING.md},
   card: {borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.xs, elevation: 1},
   cardContent: {flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm},
   iconContainer: {
@@ -183,6 +205,7 @@ const styles = StyleSheet.create({
   message: {fontSize: 13, lineHeight: 18, marginBottom: 4},
   time: {fontSize: 11},
   readDot: {width: 8, height: 8, borderRadius: 4, marginTop: 4},
+  deleteBtn: {padding: 4, marginLeft: 4},
 });
 
 export default NotificationsScreen;

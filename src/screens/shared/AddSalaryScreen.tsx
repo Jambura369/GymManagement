@@ -7,12 +7,16 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert as RNAlert,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../../types';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {Card, Avatar, Chip} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import DatePickerModal from '../../components/common/DatePickerModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -20,10 +24,12 @@ import dayjs from 'dayjs';
 
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
+import {useDashboardStore} from '../../store/dashboardStore';
 import {COLORS, SPACING, BORDER_RADIUS, SALARY_PAYMENT_TYPES} from '../../constants';
 import {User, TrainerSalary} from '../../types';
 import {fetchUsers} from '../../services/userService';
 import {paySalary, fetchSalaries} from '../../services/salaryService';
+import {Alert} from 'react-native';
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
@@ -39,10 +45,13 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
 const AddSalaryScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const {user, gym} = useAuthStore();
   const {isDark} = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [trainers, setTrainers] = useState<User[]>([]);
   const [recentSalaries, setRecentSalaries] = useState<TrainerSalary[]>([]);
@@ -79,24 +88,47 @@ const AddSalaryScreen: React.FC = () => {
       fetchSalaries(gym.id),
     ]);
     if (trainerRes.data) setTrainers(trainerRes.data);
-    if (salaryRes.data) setRecentSalaries(salaryRes.data.slice(0, 5));
+    // Keep all this-month records for duplicate detection; show last 5 in UI
+    if (salaryRes.data) setRecentSalaries(salaryRes.data);
   };
 
-  const onSubmit = async (data: FormData) => {
+  const doPaySalary = async (data: FormData) => {
     if (!gym || !user) return;
     setLoading(true);
     const result = await paySalary(gym.id, user.id, data);
     setLoading(false);
     if (result.data) {
-      Toast.show({
-        type: 'success',
-        text1: 'Salary Paid!',
-        text2: `₹${data.salary_amount} paid successfully`,
-      });
+      useDashboardStore.getState().refresh(gym.id);
+      Toast.show({type: 'success', text1: 'Salary Paid!', text2: `₹${data.salary_amount} paid successfully`});
       navigation.goBack();
     } else {
       Toast.show({type: 'error', text1: 'Failed', text2: result.error || 'Something went wrong'});
     }
+  };
+
+  const onSubmit = async (data: FormData) => {
+    if (!gym || !user) return;
+    // Warn if this trainer was already paid this calendar month
+    const monthStart = dayjs().startOf('month').format('YYYY-MM-DD');
+    const monthEnd = dayjs().endOf('month').format('YYYY-MM-DD');
+    const alreadyPaid = recentSalaries.some(
+      s =>
+        s.trainer_id === data.trainer_id &&
+        s.payment_date >= monthStart &&
+        s.payment_date <= monthEnd,
+    );
+    if (alreadyPaid) {
+      RNAlert.alert(
+        'Possible Duplicate',
+        'This trainer has already been paid this month. Do you want to pay again?',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {text: 'Pay Anyway', onPress: () => doPaySalary(data)},
+        ],
+      );
+      return;
+    }
+    await doPaySalary(data);
   };
 
   const trainerOptions = trainers.map(t => ({label: `${t.name} (${t.phone || ''})`, value: t.id}));
@@ -104,10 +136,10 @@ const AddSalaryScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: bgColor}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader title="Pay Trainer Salary" onBack={() => navigation.goBack()} isDark={isDark} />
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Trainer & Amount</Text>
@@ -212,8 +244,11 @@ const AddSalaryScreen: React.FC = () => {
         {recentSalaries.length > 0 && (
           <View style={styles.recentSection}>
             <Text style={[styles.sectionTitle, {color: textColor}]}>Recent Payments</Text>
-            {recentSalaries.map(salary => (
-              <Card key={salary.id} style={[styles.salaryCard, {backgroundColor: cardBg}]}>
+            {recentSalaries.slice(0, 5).map(salary => (
+              <Card
+                key={salary.id}
+                style={[styles.salaryCard, {backgroundColor: cardBg}]}
+                onPress={() => navigation.navigate('EditSalary', {salaryId: salary.id})}>
                 <Card.Content style={styles.salaryContent}>
                   <Avatar.Text
                     size={36}
@@ -230,6 +265,7 @@ const AddSalaryScreen: React.FC = () => {
                   <Text style={[styles.salaryAmount, {color: COLORS.success}]}>
                     ₹{Number(salary.salary_amount).toLocaleString('en-IN')}
                   </Text>
+                  <MaterialCommunityIcons name="pencil-outline" size={16} color={COLORS.textSecondary} />
                 </Card.Content>
               </Card>
             ))}
@@ -242,7 +278,7 @@ const AddSalaryScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
+  scroll: {padding: SPACING.md},
   section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: SPACING.md},
   dateField: {flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: BORDER_RADIUS.sm, padding: SPACING.md, gap: SPACING.sm, marginBottom: SPACING.sm},

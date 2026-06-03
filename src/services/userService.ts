@@ -1,5 +1,7 @@
 import {supabase} from '../supabase/client';
 import {User, AddUserForm, ApiResponse} from '../types';
+import {uploadImage} from './storageService';
+import {SUPABASE_BUCKETS} from '../constants';
 
 export const fetchUsers = async (
   gymId: string,
@@ -29,7 +31,11 @@ export const addUser = async (
   form: AddUserForm,
 ): Promise<ApiResponse<User>> => {
   try {
-    // Create auth account
+    // Save admin session before creating the new user account.
+    // Calling supabase.auth.signUp() replaces the current session when
+    // email-confirmation is disabled, which would silently log out the admin.
+    const {data: {session: adminSession}} = await supabase.auth.getSession();
+
     const {data: authData, error: authError} = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -37,6 +43,27 @@ export const addUser = async (
 
     if (authError || !authData.user) {
       return {data: null, error: authError?.message || 'Failed to create auth'};
+    }
+
+    // Restore the admin session immediately if it was replaced.
+    if (adminSession) {
+      const {error: restoreError} = await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token,
+      });
+      if (restoreError) {
+        return {data: null, error: 'Admin session could not be restored. Please log in again.'};
+      }
+    }
+
+    let avatarUrl: string | null = null;
+    if (form.avatar) {
+      const uploadResult = await uploadImage(
+        form.avatar,
+        SUPABASE_BUCKETS.STAFF_IMAGES,
+        `${gymId}/${authData.user.id}`,
+      );
+      avatarUrl = uploadResult.data;
     }
 
     const {data, error} = await supabase
@@ -49,6 +76,7 @@ export const addUser = async (
         phone: form.phone,
         role: form.role,
         is_active: true,
+        avatar: avatarUrl,
       })
       .select()
       .single();
@@ -97,7 +125,14 @@ export const toggleUserActive = async (
 
 export const updateGymSettings = async (
   gymId: string,
-  updates: Record<string, any>,
+  updates: {
+    gym_name?: string;
+    gym_logo?: string | null;
+    owner_name?: string;
+    phone?: string;
+    address?: string;
+    payment_qr?: string | null;
+  },
 ): Promise<ApiResponse<null>> => {
   try {
     const {error} = await supabase

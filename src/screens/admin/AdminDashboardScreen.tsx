@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
   Linking,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, CompositeNavigationProp} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {Card, Avatar, Chip} from 'react-native-paper';
+import {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
+import {Card, Avatar} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
 
@@ -19,22 +20,24 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
 import {useDashboardStore} from '../../store/dashboardStore';
-import {useStudentStore} from '../../store/studentStore';
 import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
-import {RootStackParamList, Student} from '../../types';
+import {RootStackParamList, TabParamList, Student} from '../../types';
 import StatCard from '../../components/common/StatCard';
 import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 import GymProLogo from '../../components/common/GymProLogo';
-import {getExpiringMemberships} from '../../services/studentService';
+import {getExpiryAlerts} from '../../services/studentService';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'Dashboard'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
 const AdminDashboardScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {user, gym} = useAuthStore();
   const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
-  const {stats, chartData, isLoading, refresh} = useDashboardStore();
+  const {stats, isLoading, error: dashboardError, refresh, refreshIfStale} = useDashboardStore();
   const [expiringStudents, setExpiringStudents] = React.useState<Student[]>([]);
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -42,20 +45,23 @@ const AdminDashboardScreen: React.FC = () => {
   const textColor = isDark ? COLORS.textDark : COLORS.text;
   const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
-  const load = useCallback(async () => {
+  const loadExpiringStudents = useCallback(async () => {
     if (!gym) return;
-    await refresh(gym.id);
-    const result = await getExpiringMemberships(gym.id, 7);
+    const result = await getExpiryAlerts(gym.id);
     if (result.data) setExpiringStudents(result.data);
   }, [gym]);
 
+  // On mount: use cache if fresh, otherwise fetch
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!gym) return;
+    refreshIfStale(gym.id);
+    loadExpiringStudents();
+  }, [gym, refreshIfStale, loadExpiringStudents]);
 
   const onRefresh = async () => {
+    if (!gym) return;
     setRefreshing(true);
-    await load();
+    await Promise.all([refresh(gym.id), loadExpiringStudents()]);
     setRefreshing(false);
   };
 
@@ -74,10 +80,44 @@ const AdminDashboardScreen: React.FC = () => {
     );
   }
 
+  if (dashboardError && !stats) {
+    return (
+      <View style={[styles.container, styles.errorCenter, {backgroundColor: bgColor}]}>
+        <MaterialCommunityIcons name="wifi-off" size={52} color={COLORS.error} />
+        <Text style={[styles.errorTitle, {color: textColor}]}>Failed to Load Dashboard</Text>
+        <Text style={[styles.errorMsg, {color: COLORS.textSecondary}]}>{dashboardError}</Text>
+        <TouchableOpacity
+          style={[styles.retryBtn, {backgroundColor: COLORS.primary}]}
+          onPress={() => gym && refresh(gym.id)}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const formatExpiryLabel = (expiryDate: string) => {
+    const today = dayjs().startOf('day');
+    const expiry = dayjs(expiryDate).startOf('day');
+    const diffDays = expiry.diff(today, 'day');
+    if (diffDays === 0) return 'Expires today!';
+    if (diffDays > 0) {
+      if (diffDays < 30) return `Expires in ${diffDays} day${diffDays === 1 ? '' : 's'}`;
+      const m = Math.floor(diffDays / 30);
+      const d = diffDays % 30;
+      return d > 0 ? `Expires in ${m}m ${d}d` : `Expires in ${m} month${m > 1 ? 's' : ''}`;
+    }
+    const abs = Math.abs(diffDays);
+    if (abs < 30) return `Expired ${abs} day${abs === 1 ? '' : 's'} ago`;
+    const m = Math.floor(abs / 30);
+    const d = abs % 30;
+    return d > 0 ? `Expired ${m}m ${d}d ago` : `Expired ${m} month${m > 1 ? 's' : ''} ago`;
+  };
+
   const ExpiryItem = ({item}: {item: Student}) => {
-    const daysLeft = dayjs(item.membership_expiry).diff(dayjs(), 'day');
-    const isExpired = daysLeft < 0;
-    const isUrgent = daysLeft <= 3;
+    if (!item.membership_expiry) return null;
+    const diffDays = dayjs(item.membership_expiry).startOf('day').diff(dayjs().startOf('day'), 'day');
+    const isExpired = diffDays < 0;
+    const isUrgent = diffDays >= 0 && diffDays <= 3;
     const color = isExpired ? COLORS.error : isUrgent ? COLORS.warning : COLORS.info;
 
     return (
@@ -96,11 +136,7 @@ const AdminDashboardScreen: React.FC = () => {
               {item.name}
             </Text>
             <Text style={[styles.expiryDate, {color}]}>
-              {isExpired
-                ? `Expired ${Math.abs(daysLeft)} days ago`
-                : daysLeft === 0
-                ? 'Expires today!'
-                : `Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`}
+              {formatExpiryLabel(item.membership_expiry)}
             </Text>
           </View>
           <TouchableOpacity
@@ -176,41 +212,6 @@ const AdminDashboardScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Alerts */}
-      {((stats?.expiring_3_days ?? 0) > 0 ||
-        (stats?.pending_verification ?? 0) > 0 ||
-        (stats?.expired_memberships ?? 0) > 0) && (
-        <View style={styles.alertsRow}>
-          {(stats?.expiring_3_days ?? 0) > 0 && (
-            <Chip
-              icon="alert"
-              style={[styles.alertChip, {backgroundColor: COLORS.error + '20'}]}
-              textStyle={{color: COLORS.error, fontSize: 11}}
-              onPress={() => navigation.navigate('Students' as any)}>
-              {stats!.expiring_3_days} Expiring in 3d
-            </Chip>
-          )}
-          {(stats?.pending_verification ?? 0) > 0 && (
-            <Chip
-              icon="clock-outline"
-              style={[styles.alertChip, {backgroundColor: COLORS.warning + '20'}]}
-              textStyle={{color: COLORS.warning, fontSize: 11}}
-              onPress={() => navigation.navigate('VerificationList')}>
-              {stats!.pending_verification} Pending
-            </Chip>
-          )}
-          {(stats?.expired_memberships ?? 0) > 0 && (
-            <Chip
-              icon="calendar-remove"
-              style={[styles.alertChip, {backgroundColor: COLORS.secondary + '20'}]}
-              textStyle={{color: COLORS.secondary, fontSize: 11}}
-              onPress={() => navigation.navigate('Students' as any)}>
-              {stats!.expired_memberships} Expired
-            </Chip>
-          )}
-        </View>
-      )}
-
       {/* Stat Cards */}
       <Text style={[styles.sectionTitle, {color: textColor}]}>Overview</Text>
       <View style={styles.statsGrid}>
@@ -220,7 +221,7 @@ const AdminDashboardScreen: React.FC = () => {
           icon="account-group"
           color={COLORS.primary}
           isDark={isDark}
-          onPress={() => navigation.navigate('Students' as any)}
+          onPress={() => navigation.navigate('Students')}
         />
         <StatCard
           title="Active Members"
@@ -240,11 +241,30 @@ const AdminDashboardScreen: React.FC = () => {
           onPress={() => navigation.navigate('VerificationList')}
         />
         <StatCard
-          title="Expiring 7 Days"
-          value={stats?.expiring_7_days ?? 0}
+          title="≤ 3 Days"
+          value={stats?.expiring_3_days ?? 0}
+          icon="calendar-alert"
+          color={COLORS.warning}
+          isDark={isDark}
+          onPress={() => navigation.navigate('ExpiryList', {expiryFilter: 'expiring_3'})}
+        />
+      </View>
+      <View style={styles.statsGrid}>
+        <StatCard
+          title="4-7 Days"
+          value={Math.max(0, (stats?.expiring_7_days ?? 0) - (stats?.expiring_3_days ?? 0))}
           icon="calendar-clock"
           color={COLORS.info}
           isDark={isDark}
+          onPress={() => navigation.navigate('ExpiryList', {expiryFilter: 'expiring_7'})}
+        />
+        <StatCard
+          title="Expired"
+          value={stats?.expired_memberships ?? 0}
+          icon="calendar-remove"
+          color={COLORS.error}
+          isDark={isDark}
+          onPress={() => navigation.navigate('ExpiryList', {expiryFilter: 'expired'})}
         />
       </View>
       <View style={styles.statsGrid}>
@@ -272,33 +292,48 @@ const AdminDashboardScreen: React.FC = () => {
             <Text style={[styles.sectionTitle, {color: textColor, marginBottom: 0}]}>
               Membership Alerts
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Students' as any)}>
-              <Text style={[styles.seeAll, {color: COLORS.primary}]}>See All</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ExpiryList', {})}>
+              <Text style={[styles.seeAll, {color: COLORS.primary}]}>
+                View All ({expiringStudents.length})
+              </Text>
             </TouchableOpacity>
           </View>
           {expiringStudents.slice(0, 5).map(student => (
             <ExpiryItem key={student.id} item={student} />
           ))}
+          {expiringStudents.length > 5 && (
+            <TouchableOpacity
+              style={[styles.viewAllBtn, {backgroundColor: COLORS.primary + '15', borderColor: COLORS.primary + '40'}]}
+              onPress={() => navigation.navigate('ExpiryList', {})}>
+              <MaterialCommunityIcons name="calendar-alert" size={16} color={COLORS.primary} />
+              <Text style={[styles.viewAllText, {color: COLORS.primary}]}>
+                View all {expiringStudents.length} alerts
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.primary} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
       {/* Quick Actions */}
       <Text style={[styles.sectionTitle, {color: textColor}]}>Quick Actions</Text>
       <View style={styles.quickActionsGrid}>
-        {[
-          {icon: 'account-plus', label: 'Add Student', route: 'AddStudent', color: COLORS.primary},
-          {icon: 'account-clock', label: 'Verifications', route: 'VerificationList', color: COLORS.warning},
-          {icon: 'cash-plus', label: 'Add Expense', route: 'AddExpense', color: COLORS.error},
-          {icon: 'currency-inr', label: 'Pay Salary', route: 'AddSalary', color: COLORS.success},
-          {icon: 'package-variant', label: 'Packages', route: 'PackageList', color: COLORS.info},
-          {icon: 'chart-bar', label: 'Reports', route: 'Reports', color: COLORS.secondary},
-          {icon: 'account-group', label: 'Staff', route: 'UserManagement', color: COLORS.trainerColor},
-          {icon: 'cog', label: 'Settings', route: 'GymSettings', color: COLORS.textSecondary},
-        ].map(item => (
+        {(
+        [
+          {icon: 'account-plus', label: 'Add Student', route: 'AddStudent' as const, color: COLORS.primary},
+          {icon: 'account-clock', label: 'Verifications', route: 'VerificationList' as const, color: COLORS.warning},
+          {icon: 'cash-plus', label: 'Add Expense', route: 'AddExpense' as const, color: COLORS.error},
+          {icon: 'currency-inr', label: 'Pay Salary', route: 'AddSalary' as const, color: COLORS.success},
+          {icon: 'package-variant', label: 'Packages', route: 'PackageList' as const, color: COLORS.info},
+          {icon: 'chart-bar', label: 'Reports', route: 'Reports' as const, color: COLORS.secondary},
+          {icon: 'account-group', label: 'Staff', route: 'UserManagement' as const, color: COLORS.trainerColor},
+          {icon: 'cog', label: 'Settings', route: 'GymSettings' as const, color: COLORS.textSecondary},
+        ] as const
+      ).map(item => (
           <TouchableOpacity
             key={item.route}
             style={[styles.quickAction, {backgroundColor: cardBg}]}
-            onPress={() => navigation.navigate(item.route as any)}>
+            onPress={() => navigation.navigate(item.route)}>
             <View
               style={[styles.quickActionIcon, {backgroundColor: item.color + '20'}]}>
               <MaterialCommunityIcons
@@ -382,14 +417,6 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {color: 'rgba(255,255,255,0.85)', fontSize: 9, fontWeight: '700', letterSpacing: 0.3},
   summaryValue: {color: '#FFF', fontSize: 15, fontWeight: '900'},
-  alertsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: SPACING.md,
-    gap: SPACING.xs,
-    marginBottom: SPACING.sm,
-  },
-  alertChip: {height: 30},
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -431,6 +458,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    marginTop: SPACING.xs,
+  },
+  viewAllText: {fontSize: 13, fontWeight: '700'},
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -458,6 +496,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   quickActionLabel: {fontSize: 10, fontWeight: '600', textAlign: 'center'},
+  errorCenter: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl},
+  errorTitle: {fontSize: 18, fontWeight: '700', marginTop: SPACING.md, marginBottom: SPACING.sm},
+  errorMsg: {fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.lg},
+  retryBtn: {paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm + 4, borderRadius: BORDER_RADIUS.lg},
+  retryText: {color: '#FFF', fontWeight: '700', fontSize: 14},
 });
 
 export default AdminDashboardScreen;
