@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gymblix Logo — Brand Aligned</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111; font-family: Arial, sans-serif; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 48px; }
+    h1 { color: #A78BFA; font-size: 13px; letter-spacing: 6px; text-transform: uppercase; }
+    .card { background: #1a1a2e; border-radius: 20px; padding: 28px 36px; display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 600px; border: 1px solid #312E5E; }
+    .badge { background: #7C3AED; color: #fff; font-size: 10px; letter-spacing: 3px; padding: 4px 14px; border-radius: 20px; text-transform: uppercase; }
+    .use-case { font-size: 12px; color: #9CA3AF; text-align: center; line-height: 1.7; }
+    .use-case strong { color: #A78BFA; }
+    img { border-radius: 12px; max-width: 100%; }
+    .row-icons { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+    hr { border: none; border-top: 1px solid #312E5E; width: 100%; }
+    code { color: #EC4899; font-size: 12px; background: #0D0C1A; padding: 2px 8px; border-radius: 4px; }
+    .tip { color: #6B7280; font-size: 12px; text-align: center; line-height: 1.8; }
+  </style>
+</head>
+<body>
+
+  <h1>Gymblix — Brand Aligned Logo System</h1>
+
+  <!-- V1: Banner dark -->
+  <div class="card">
+    <span class="badge">V1 — Banner · Dark Mode</span>
+    <img src="gymblix_logo.svg" width="500" height="148"/>
+    <p class="use-case">
+      <strong>Best for:</strong> App splash screen · Auth screen header · Dark mode navigation header<br>
+      Colors: Brand purple→pink gradient · Dark <code>#0D0C1A</code> bg · White text
+    </p>
+  </div>
+
+  <!-- V2: Square icon dark -->
+  <div class="card">
+    <span class="badge">V2 — Square Icon · Dark Mode</span>
+    <div class="row-icons">
+      <img src="gymblix_logo_v2.svg" width="300" height="300"/>
+      <img src="gymblix_logo_v2.svg" width="120" height="120"/>
+      <img src="gymblix_logo_v2.svg" width="60" height="60"/>
+    </div>
+    <p class="use-case">
+      <strong>Best for:</strong> App icon · Profile avatar · Notification icon · Favicon<br>
+      Hexagon + G monogram + gear mark — scales well at all sizes
+    </p>
+  </div>
+
+  <!-- V3: Square icon gradient (splash) -->
+  <div class="card">
+    <span class="badge">V3 — Square Icon · Gradient Splash</span>
+    <div class="row-icons">
+      <img src="gymblix_logo_v3.svg" width="300" height="300"/>
+      <img src="gymblix_logo_v3.svg" width="120" height="120"/>
+    </div>
+    <p class="use-case">
+      <strong>Best for:</strong> Animated splash screen · Onboarding screens · Marketing material<br>
+      Brand gradient <code>#7C3AED</code>→<code>#4F46E5</code> bg · White + gold accents
+    </p>
+  </div>
+
+  <!-- V4: Banner light -->
+  <div class="card" style="background:#F8F7FF; border-color:#E5E7EB;">
+    <span class="badge" style="background:#1A1A2E;">V4 — Banner · Light Mode</span>
+    <img src="gymblix_logo_v4.svg" width="500" height="148"/>
+    <p class="use-case" style="color:#6B7280;">
+      <strong style="color:#7C3AED;">Best for:</strong> Light mode header · Email signatures · Print · White bg contexts<br>
+      White <code>#F8F7FF</code> bg · Dark <code>#1A1A2E</code> text · Brand gradient accents
+    </p>
+  </div>
+
+  <hr style="width:500px"/>
+
+  <div class="tip">
+    Open in browser → right-click any logo → "Save image as .png"<br>
+    Or export via terminal:<br>
+    <code>npx svgexport gymblix_logo_v2.svg gymblix_icon.png 2x</code><br>
+    <code>npx svgexport gymblix_logo.svg gymblix_banner.png 2x</code>
+  </div>
+
+</body>
+</html>

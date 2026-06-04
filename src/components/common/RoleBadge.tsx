@@ -6,22 +6,26 @@ import {UserRole} from '../../types';
 interface RoleBadgeProps {
   role: UserRole;
   size?: 'sm' | 'md';
+  onDark?: boolean;
 }
 
-const RoleBadge: React.FC<RoleBadgeProps> = ({role, size = 'md'}) => {
+const RoleBadge: React.FC<RoleBadgeProps> = ({role, size = 'md', onDark = false}) => {
   const color = ROLE_COLORS[role] || '#9E9E9E';
+  const badgeColor = onDark ? 'rgba(255,255,255,0.9)' : color;
+  const bgColor = onDark ? 'rgba(255,255,255,0.15)' : color + '20';
+  const borderColor = onDark ? 'rgba(255,255,255,0.6)' : color;
 
   return (
     <View
       style={[
         styles.badge,
-        {backgroundColor: color + '20', borderColor: color},
+        {backgroundColor: bgColor, borderColor},
         size === 'sm' && styles.badgeSm,
       ]}>
       <Text
         style={[
           styles.text,
-          {color},
+          {color: badgeColor},
           size === 'sm' && styles.textSm,
         ]}>
         {role}

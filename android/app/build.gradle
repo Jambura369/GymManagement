@@ -70,6 +70,9 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation("com.facebook.react:hermes-android")
 
+    // Splash screen compat (dismisses Android 12+ native splash instantly)
+    implementation "androidx.core:core-splashscreen:1.0.1"
+
     // Firebase BOM
     implementation platform('com.google.firebase:firebase-bom:32.7.4')
     implementation 'com.google.firebase:firebase-messaging'

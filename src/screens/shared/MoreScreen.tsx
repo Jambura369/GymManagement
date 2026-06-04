@@ -147,9 +147,14 @@ const MoreScreen: React.FC = () => {
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{user?.name}</Text>
           <Text style={styles.profileEmail}>{user?.email}</Text>
-          <Text style={styles.profileGym}>{gym?.gym_name}</Text>
+          {gym?.gym_name ? (
+            <View style={styles.gymBrand}>
+              <MaterialCommunityIcons name="dumbbell" size={11} color={COLORS.goldLight} />
+              <Text style={styles.gymBrandText}>{gym.gym_name}</Text>
+            </View>
+          ) : null}
         </View>
-        <RoleBadge role={user?.role || 'Trainer'} />
+        <RoleBadge role={user?.role || 'Trainer'} onDark />
       </View>
 
       {/* Menu Sections */}
@@ -175,7 +180,7 @@ const MoreScreen: React.FC = () => {
         );
       })}
 
-      <Text style={[styles.version, {color: subColor}]}>GymPro v1.0.0</Text>
+      <Text style={[styles.version, {color: subColor}]}>Gymblix v1.0.0</Text>
     </ScrollView>
   );
 };
@@ -193,6 +198,20 @@ const styles = StyleSheet.create({
   profileName: {color: '#FFF', fontSize: 18, fontWeight: '700'},
   profileEmail: {color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2},
   profileGym: {color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 1},
+  gymBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.goldLight + '60',
+  },
+  gymBrandText: {color: COLORS.goldLight, fontSize: 11, fontWeight: '700', letterSpacing: 0.5},
   section: {paddingHorizontal: SPACING.md, marginTop: SPACING.md},
   sectionTitle: {fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: SPACING.xs},
   sectionCard: {borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', elevation: 1},

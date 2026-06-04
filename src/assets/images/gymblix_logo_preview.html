@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gymblix Logo</title>
+  <style>
+    body { margin: 0; background: #333; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 40px; font-family: Arial, sans-serif; }
+    .label { color: #aaa; font-size: 13px; text-align: center; }
+    img { border-radius: 16px; }
+    .row { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    /* Canvas for export */
+    canvas { display: none; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="label">Full Logo (480×160) — right-click image → Save as PNG</div>
+    <img src="gymblix_logo.svg" width="480" height="160" id="logo"/>
+  </div>
+
+  <div class="row">
+    <div class="label">Large (960×320)</div>
+    <img src="gymblix_logo.svg" width="960" height="320"/>
+  </div>
+
+  <div class="row">
+    <div class="label">Small (240×80)</div>
+    <img src="gymblix_logo.svg" width="240" height="80"/>
+  </div>
+
+  <div style="color:#666; font-size:12px; margin-top: 20px;">
+    To export as PNG: Open browser DevTools → right-click the image → "Save image as" → save as .png<br>
+    Or use: <code style="color:#aaa">npx svgexport src/assets/images/gymblix_logo.svg gymblix_logo.png 2x</code>
+  </div>
+</body>
+</html>

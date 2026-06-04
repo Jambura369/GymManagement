@@ -26,7 +26,7 @@ import {COLORS, SPACING, BORDER_RADIUS, APP_NAME} from '../../constants';
 import {RootStackParamList} from '../../types';
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
-import GymProLogo from '../../components/common/GymProLogo';
+import GymblixLogo from '../../components/common/GymblixLogo';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -99,12 +99,12 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
 
           <View style={styles.headerContent}>
             <View style={styles.logoGlow}>
-              <GymProLogo size={80} />
+              <GymblixLogo size={88} />
             </View>
             <Text style={styles.appName}>{APP_NAME}</Text>
             <View style={styles.taglineRow}>
               <View style={styles.taglineDash} />
-              <Text style={styles.tagline}>Power Your Gym</Text>
+              <Text style={styles.tagline}>FITNESS MANAGEMENT</Text>
               <View style={styles.taglineDash} />
             </View>
           </View>
@@ -263,10 +263,10 @@ const styles = StyleSheet.create({
   },
   headerContent: {alignItems: 'center'},
   logoGlow: {
-    shadowColor: 'rgba(245,158,11,0.5)',
+    shadowColor: '#7C3AED',
     shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 1,
-    shadowRadius: 20,
+    shadowOpacity: 0.85,
+    shadowRadius: 24,
     marginBottom: 16,
   },
   appName: {
@@ -284,14 +284,14 @@ const styles = StyleSheet.create({
   taglineDash: {
     width: 20,
     height: 1.5,
-    backgroundColor: 'rgba(252,211,77,0.6)',
+    backgroundColor: 'rgba(167,139,250,0.6)',
     borderRadius: 1,
   },
   tagline: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.goldLight,
-    letterSpacing: 1.5,
+    fontSize: 11,
+    fontWeight: '400',
+    color: COLORS.primaryLight,
+    letterSpacing: 3,
   },
   card: {
     marginHorizontal: SPACING.lg,

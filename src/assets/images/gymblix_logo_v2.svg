@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480">
+  <defs>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0D0C1A"/>
+      <stop offset="100%" stop-color="#1C1B30"/>
+    </linearGradient>
+    <filter id="neon">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="480" height="480" rx="48" fill="url(#bg)"/>
+
+  <!-- Outer hexagon border (pointy-top, R=142, center 240,205) -->
+  <polygon points="240,63 363,134 363,276 240,347 117,276 117,134"
+    fill="none" stroke="url(#brand)" stroke-width="4.5" filter="url(#neon)"/>
+
+  <!-- Inner hexagon (double border + fill) -->
+  <polygon points="240,83 346,145 346,265 240,327 134,265 134,145"
+    fill="#7C3AED" opacity="0.1"/>
+  <polygon points="240,83 346,145 346,265 240,327 134,265 134,145"
+    fill="none" stroke="url(#brand)" stroke-width="2" opacity="0.45"/>
+
+  <!-- Gear icon (center 240,200) — visible through G's open counter -->
+  <!-- outer_r=60, inner_r=44, 8 teeth -->
+  <path d="M 283.46,193.12 L 299.55,192.70 L 299.55,207.30 L 283.46,206.88
+           L 275.59,225.87 L 287.27,236.94 L 276.94,247.27 L 265.87,235.59
+           L 246.88,243.46 L 247.30,259.55 L 232.70,259.55 L 233.12,243.46
+           L 214.13,235.59 L 203.06,247.27 L 192.73,236.94 L 204.41,225.87
+           L 196.54,206.88 L 180.45,207.30 L 180.45,192.70 L 196.54,193.12
+           L 204.41,174.13 L 192.73,163.06 L 203.06,152.73 L 214.13,164.41
+           L 233.12,156.54 L 232.70,140.45 L 247.30,140.45 L 246.88,156.54
+           L 265.87,164.41 L 276.94,152.73 L 287.27,163.06 L 275.59,174.13 Z"
+    fill="url(#brand)" filter="url(#neon)"/>
+  <!-- Gear center hole -->
+  <circle cx="240" cy="200" r="22" fill="#0D0C1A"/>
+  <!-- Gear hub ring -->
+  <circle cx="240" cy="200" r="14" fill="none" stroke="url(#brand)" stroke-width="2" opacity="0.6"/>
+
+  <!-- G monogram (on top of gear — gear visible through G's open right side) -->
+  <text x="240" y="272"
+    font-family="'Arial Black', Impact, sans-serif"
+    font-size="188" font-weight="900" text-anchor="middle"
+    fill="#F1F0FF">G</text>
+
+  <!-- Brand divider line -->
+  <rect x="80" y="374" width="320" height="3.5" rx="1.5" fill="url(#brand)" filter="url(#soft)"/>
+
+  <!-- GYMBLIX text -->
+  <text x="240" y="422"
+    font-family="'Arial Black', Impact, sans-serif"
+    font-size="48" font-weight="900" letter-spacing="4"
+    text-anchor="middle" fill="#F1F0FF">GYMBLIX</text>
+
+  <!-- Tagline (light weight — subordinate to brand name) -->
+  <text x="240" y="456"
+    font-family="Arial, sans-serif"
+    font-size="12.5" font-weight="400" letter-spacing="4.5"
+    text-anchor="middle" fill="#A78BFA" opacity="0.75">FITNESS MANAGEMENT</text>
+</svg>

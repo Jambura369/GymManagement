@@ -2,11 +2,11 @@ import React, {useEffect, useRef} from 'react';
 import {StyleSheet, View, Text, Animated} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {COLORS, APP_NAME} from '../../constants';
-import GymProLogo from '../../components/common/GymProLogo';
+import GymblixLogo from '../../components/common/GymblixLogo';
 
 const SplashScreen: React.FC = () => {
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.75)).current;
+  const scale = useRef(new Animated.Value(0.88)).current;
   const taglineOpacity = useRef(new Animated.Value(0)).current;
   const taglineY = useRef(new Animated.Value(12)).current;
 
@@ -35,7 +35,7 @@ const SplashScreen: React.FC = () => {
 
       <Animated.View style={[styles.content, {opacity, transform: [{scale}]}]}>
         <View style={styles.logoGlow}>
-          <GymProLogo size={100} />
+          <GymblixLogo size={110} />
         </View>
         <Text style={styles.name}>{APP_NAME}</Text>
         <Animated.View
@@ -46,7 +46,7 @@ const SplashScreen: React.FC = () => {
           }}>
           <Text style={styles.tagline}>Power Your Gym</Text>
           <View style={styles.divider} />
-          <Text style={styles.sub}>Gym Management Platform</Text>
+          <Text style={styles.sub}>Fitness Management Platform</Text>
         </Animated.View>
       </Animated.View>
 
@@ -81,10 +81,10 @@ const styles = StyleSheet.create({
   },
   content: {alignItems: 'center'},
   logoGlow: {
-    shadowColor: 'rgba(245,158,11,0.6)',
+    shadowColor: '#7C3AED',
     shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 1,
-    shadowRadius: 24,
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
     marginBottom: 24,
   },
   name: {

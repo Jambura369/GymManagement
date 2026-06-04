@@ -51,7 +51,7 @@ class MainApplication : Application(), ReactApplication {
                 "Gym Notifications",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "GymPro membership and verification alerts"
+                description = "Gymblix membership and verification alerts"
                 enableVibration(true)
             }
             val notificationManager =

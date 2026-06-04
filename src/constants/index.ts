@@ -153,5 +153,5 @@ export const VERIFICATION_COLORS: Record<string, string> = {
   Rejected: '#F44336',
 };
 
-export const APP_NAME = 'GymPro';
+export const APP_NAME = 'Gymblix';
 export const APP_VERSION = '1.0.0';

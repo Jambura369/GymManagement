@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="0.5" stop-color="#6D28D9"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="hex" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EC4899"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="512" cy="512" r="512" fill="url(#bg)"/>
+
+  <!-- Dark inner circle (logo bg) -->
+  <circle cx="512" cy="512" r="370" fill="#0D0C1A" fill-opacity="0.75"/>
+
+  <!-- Outer hexagon border (pointy-top) -->
+  <polygon
+    points="512,152 812,325 812,672 512,845 212,672 212,325"
+    fill="none"
+    stroke="url(#hex)"
+    stroke-width="22"/>
+
+  <!-- Inner hexagon subtle fill -->
+  <polygon
+    points="512,192 776,343 776,657 512,808 248,657 248,343"
+    fill="#7C3AED"
+    fill-opacity="0.10"/>
+  <polygon
+    points="512,192 776,343 776,657 512,808 248,657 248,343"
+    fill="none"
+    stroke="url(#hex)"
+    stroke-width="8"
+    stroke-opacity="0.35"/>
+
+  <!-- G monogram -->
+  <text
+    x="490"
+    y="670"
+    font-family="Arial Black, sans-serif"
+    font-size="480"
+    font-weight="900"
+    text-anchor="middle"
+    fill="white">G</text>
+
+  <!-- + superscript badge -->
+  <circle cx="730" cy="290" r="90" fill="url(#hex)"/>
+  <text
+    x="730"
+    y="345"
+    font-family="Arial Black, sans-serif"
+    font-size="130"
+    font-weight="900"
+    text-anchor="middle"
+    fill="white">+</text>
+</svg>

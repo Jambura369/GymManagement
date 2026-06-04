@@ -24,7 +24,7 @@ import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
 import {RootStackParamList, TabParamList, Student} from '../../types';
 import StatCard from '../../components/common/StatCard';
 import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
-import GymProLogo from '../../components/common/GymProLogo';
+import GymblixLogo from '../../components/common/GymblixLogo';
 import {getExpiryAlerts} from '../../services/studentService';
 
 type Nav = CompositeNavigationProp<
@@ -169,7 +169,7 @@ const AdminDashboardScreen: React.FC = () => {
         style={[styles.header, {paddingTop: insets.top + SPACING.md}]}>
         <View style={styles.headerDecor} />
         <View style={styles.headerRow}>
-          <GymProLogo size={44} />
+          <GymblixLogo size={44} />
           <View style={styles.headerText}>
             <Text style={styles.greeting}>
               {dayjs().hour() < 12 ? 'Good Morning' : dayjs().hour() < 17 ? 'Good Afternoon' : 'Good Evening'}

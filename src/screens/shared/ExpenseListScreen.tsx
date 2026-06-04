@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {FAB, Card, Chip, Menu} from 'react-native-paper';
+import {FAB, Card, Menu} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
@@ -134,12 +134,9 @@ const ExpenseListScreen: React.FC = () => {
               {item.title}
             </Text>
             <View style={styles.metaRow}>
-              <Chip
-                compact
-                style={{backgroundColor: catColor + '15', height: 24}}
-                textStyle={{color: catColor, fontSize: 10}}>
-                {item.category}
-              </Chip>
+              <View style={[styles.categoryBadge, {backgroundColor: catColor + '20'}]}>
+                <Text style={[styles.categoryText, {color: catColor}]}>{item.category}</Text>
+              </View>
               <Text style={[styles.date, {color: COLORS.textSecondary}]}>
                 {dayjs(item.expense_date).format('DD MMM YYYY')}
               </Text>
@@ -342,6 +339,8 @@ const styles = StyleSheet.create({
   expenseInfo: {flex: 1},
   title: {fontSize: 15, fontWeight: '600', marginBottom: 4},
   metaRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.xs},
+  categoryBadge: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10},
+  categoryText: {fontSize: 10, fontWeight: '600'},
   date: {fontSize: 11},
   amountContainer: {alignItems: 'flex-end', gap: 4},
   amount: {fontSize: 16, fontWeight: '700'},
