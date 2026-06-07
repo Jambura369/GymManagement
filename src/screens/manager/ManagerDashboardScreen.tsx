@@ -3,6 +3,7 @@ import {
   StyleSheet,
   View,
   Text,
+  Image,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -74,10 +75,15 @@ const ManagerDashboardScreen: React.FC = () => {
       showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={[styles.header, {backgroundColor: COLORS.managerColor, paddingTop: insets.top + SPACING.md}]}>
-        <View>
-          <Text style={styles.greeting}>Manager Dashboard</Text>
-          <Text style={styles.userName}>{user?.name}</Text>
-          <Text style={styles.gymName}>{gym?.gym_name}</Text>
+        <View style={styles.headerLeft}>
+          {gym?.gym_logo ? (
+            <Image source={{uri: gym.gym_logo}} style={styles.gymLogo} />
+          ) : null}
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.greeting}>Manager Dashboard</Text>
+            <Text style={styles.userName}>{user?.name}</Text>
+            <Text style={styles.gymName}>{gym?.gym_name}</Text>
+          </View>
         </View>
         <TouchableOpacity
           onPress={() => navigation.navigate('Notifications')}
@@ -178,6 +184,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerLeft: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flex: 1},
+  headerTextWrap: {flex: 1},
+  gymLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   greeting: {color: 'rgba(255,255,255,0.8)', fontSize: 13},
   userName: {color: '#FFF', fontSize: 20, fontWeight: '700'},

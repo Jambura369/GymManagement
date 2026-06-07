@@ -96,13 +96,7 @@ export const getFCMToken = async (): Promise<string | null> => {
 export const setupFCMListeners = (
   onMessage: (notification: any) => void,
 ): (() => void) => {
-  const unsubscribeForeground = messaging().onMessage(async remoteMessage => {
+  return messaging().onMessage(async remoteMessage => {
     onMessage(remoteMessage);
   });
-
-  messaging().setBackgroundMessageHandler(async remoteMessage => {
-    console.log('Background FCM:', remoteMessage);
-  });
-
-  return unsubscribeForeground;
 };

@@ -7,9 +7,10 @@ interface RoleBadgeProps {
   role: UserRole;
   size?: 'sm' | 'md';
   onDark?: boolean;
+  style?: object;
 }
 
-const RoleBadge: React.FC<RoleBadgeProps> = ({role, size = 'md', onDark = false}) => {
+const RoleBadge: React.FC<RoleBadgeProps> = ({role, size = 'md', onDark = false, style}) => {
   const color = ROLE_COLORS[role] || '#9E9E9E';
   const badgeColor = onDark ? 'rgba(255,255,255,0.9)' : color;
   const bgColor = onDark ? 'rgba(255,255,255,0.15)' : color + '20';
@@ -21,6 +22,7 @@ const RoleBadge: React.FC<RoleBadgeProps> = ({role, size = 'md', onDark = false}
         styles.badge,
         {backgroundColor: bgColor, borderColor},
         size === 'sm' && styles.badgeSm,
+        style,
       ]}>
       <Text
         style={[

@@ -362,6 +362,7 @@ export type RootStackParamList = {
   RenewStudent: { studentId: string };
   VerificationList: undefined;
   AddExpense: undefined;
+  ExpenseDetail: { expenseId: string };
   EditExpense: { expenseId: string };
   AddSalary: undefined;
   EditSalary: {salaryId: string};
@@ -375,6 +376,7 @@ export type RootStackParamList = {
   UserManagement: undefined;
   AddUser: undefined;
   Profile: undefined;
+  PaymentQR: undefined;
 };
 
 export type TabParamList = {

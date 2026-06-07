@@ -262,12 +262,14 @@ CREATE TRIGGER on_verification_status_change
   AFTER UPDATE ON verification_requests
   FOR EACH ROW EXECUTE FUNCTION handle_student_verification();
 
--- Function: Create verification request when student added
+-- Function: Create verification request when student added (trainer-added only)
 CREATE OR REPLACE FUNCTION create_verification_request()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO verification_requests (gym_id, student_id, trainer_id, status)
-  VALUES (NEW.gym_id, NEW.id, NEW.created_by, 'Pending');
+  IF NEW.verification_status = 'Pending' THEN
+    INSERT INTO verification_requests (gym_id, student_id, trainer_id, status)
+    VALUES (NEW.gym_id, NEW.id, NEW.created_by, 'Pending');
+  END IF;
   RETURN NEW;
 END;
 $$ language 'plpgsql';

@@ -3,6 +3,7 @@ import {
   StyleSheet,
   View,
   Text,
+  Image,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -21,6 +22,7 @@ import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
 import {RootStackParamList, Student} from '../../types';
 import {fetchStudents, getExpiryAlerts} from '../../services/studentService';
 import StatCard from '../../components/common/StatCard';
+import {formatExpiryLabel} from '../../utils/dateUtils';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -111,24 +113,6 @@ const TrainerDashboardScreen: React.FC = () => {
     );
   };
 
-  const formatExpiryLabel = (expiryDate: string) => {
-    const today = dayjs().startOf('day');
-    const expiry = dayjs(expiryDate).startOf('day');
-    const diffDays = expiry.diff(today, 'day');
-    if (diffDays === 0) return {label: 'Expires today!', isExpired: false};
-    if (diffDays > 0) {
-      if (diffDays < 30) return {label: `Expires in ${diffDays} day${diffDays === 1 ? '' : 's'}`, isExpired: false};
-      const m = Math.floor(diffDays / 30);
-      const d = diffDays % 30;
-      return {label: d > 0 ? `Expires in ${m}m ${d}d` : `Expires in ${m} month${m > 1 ? 's' : ''}`, isExpired: false};
-    }
-    const abs = Math.abs(diffDays);
-    if (abs < 30) return {label: `Expired ${abs} day${abs === 1 ? '' : 's'} ago`, isExpired: true};
-    const m = Math.floor(abs / 30);
-    const d = abs % 30;
-    return {label: d > 0 ? `Expired ${m}m ${d}d ago` : `Expired ${m} month${m > 1 ? 's' : ''} ago`, isExpired: true};
-  };
-
   /* ── Expired / nearly-expired student card ── */
   const AlertCard = ({student}: {student: Student}) => {
     if (!student.membership_expiry) return null;
@@ -191,10 +175,15 @@ const TrainerDashboardScreen: React.FC = () => {
           styles.header,
           {backgroundColor: COLORS.trainerColor, paddingTop: insets.top + SPACING.md},
         ]}>
-        <View>
-          <Text style={styles.greeting}>Trainer Dashboard</Text>
-          <Text style={styles.userName}>{user?.name}</Text>
-          <Text style={styles.gymName}>{gym?.gym_name}</Text>
+        <View style={styles.headerLeft}>
+          {gym?.gym_logo ? (
+            <Image source={{uri: gym.gym_logo}} style={styles.gymLogo} />
+          ) : null}
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.greeting}>Trainer Dashboard</Text>
+            <Text style={styles.userName}>{user?.name}</Text>
+            <Text style={styles.gymName}>{gym?.gym_name}</Text>
+          </View>
         </View>
         <TouchableOpacity
           onPress={() => navigation.navigate('Notifications')}
@@ -346,6 +335,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerLeft: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flex: 1},
+  headerTextWrap: {flex: 1},
+  gymLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   greeting: {color: 'rgba(255,255,255,0.8)', fontSize: 13},
   userName: {color: '#FFF', fontSize: 20, fontWeight: '700'},

@@ -17,16 +17,17 @@ import dayjs from 'dayjs';
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
 import {COLORS, SPACING, BORDER_RADIUS, EXPENSE_CATEGORY_COLORS} from '../../constants';
-import {getMonthlyRevenue} from '../../services/dashboardService';
+import {getMonthlyRevenue, getRevenueByDateRange} from '../../services/dashboardService';
 import {getExpenseSummary} from '../../services/expenseService';
 import {getSalaryTotal} from '../../services/salaryService';
 import AppHeader from '../../components/common/AppHeader';
+import DatePickerModal from '../../components/common/DatePickerModal';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - SPACING.md * 4;
 
 const REPORT_TABS = ['Revenue', 'Expenses', 'Profit'];
-const DATE_RANGES = ['This Month', 'Last 3 Months', 'Last 6 Months', 'This Year'];
+const DATE_RANGES = ['Today', 'This Month', 'Last 3 Months', 'Last 6 Months', 'This Year', 'Custom'];
 
 const ReportsScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -35,7 +36,11 @@ const ReportsScreen: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState('Revenue');
   const [dateRange, setDateRange] = useState('Last 6 Months');
+  const [customFrom, setCustomFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
+  const [customTo, setCustomTo] = useState(dayjs().format('YYYY-MM-DD'));
+  const [pickerFor, setPickerFor] = useState<'from' | 'to' | null>(null);
   const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [todayRevenue, setTodayRevenue] = useState(0);
   const [expenseSummary, setExpenseSummary] = useState<{total: number; by_category: Record<string, number>}>({total: 0, by_category: {}});
   const [salaryTotal, setSalaryTotal] = useState(0);
   const insets = useSafeAreaInsets();
@@ -48,6 +53,12 @@ const ReportsScreen: React.FC = () => {
   const getDateRange = () => {
     const now = dayjs();
     switch (dateRange) {
+      case 'Today': {
+        const today = now.format('YYYY-MM-DD');
+        return {from: today, to: today, months: 0};
+      }
+      case 'Custom':
+        return {from: customFrom, to: customTo, months: 0};
       case 'This Month':
         return {
           from: now.startOf('month').format('YYYY-MM-DD'),
@@ -55,7 +66,6 @@ const ReportsScreen: React.FC = () => {
           months: 1,
         };
       case 'Last 3 Months': {
-        // Align with the monthly chart: start of the month 3 months ago → end of current month
         const start = now.subtract(2, 'month').startOf('month');
         return {
           from: start.format('YYYY-MM-DD'),
@@ -70,7 +80,6 @@ const ReportsScreen: React.FC = () => {
           months: now.month() + 1,
         };
       default: {
-        // Last 6 Months: start of the month 6 months ago → end of current month
         const start = now.subtract(5, 'month').startOf('month');
         return {
           from: start.format('YYYY-MM-DD'),
@@ -83,24 +92,36 @@ const ReportsScreen: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [dateRange, gym]);
+  }, [dateRange, gym, customFrom, customTo]);
 
   const loadData = async () => {
     if (!gym) return;
     setLoading(true);
     const {from, to, months} = getDateRange();
+    const isToday = dateRange === 'Today';
+    const isCustom = dateRange === 'Custom';
+
     const [revRes, expRes, salRes] = await Promise.all([
-      getMonthlyRevenue(gym.id, months),
+      isToday || isCustom ? getRevenueByDateRange(gym.id, from, to) : getMonthlyRevenue(gym.id, months),
       getExpenseSummary(gym.id, from, to),
       getSalaryTotal(gym.id, from, to),
     ]);
-    if (revRes.data) setRevenueData(revRes.data);
+
+    if (isToday || isCustom) {
+      setTodayRevenue((revRes.data as number) ?? 0);
+      setRevenueData([]);
+    } else {
+      setRevenueData((revRes.data as any[]) ?? []);
+      setTodayRevenue(0);
+    }
     if (expRes.data) setExpenseSummary(expRes.data);
     if (salRes.data !== null) setSalaryTotal(salRes.data);
     setLoading(false);
   };
 
-  const totalRevenue = revenueData.reduce((s, d) => s + Number(d.revenue || 0), 0);
+  const totalRevenue = (dateRange === 'Today' || dateRange === 'Custom')
+    ? todayRevenue
+    : revenueData.reduce((s, d) => s + Number(d.revenue || 0), 0);
   const totalExpense = expenseSummary.total;
   const profit = totalRevenue - totalExpense - salaryTotal;
 
@@ -167,6 +188,29 @@ const ReportsScreen: React.FC = () => {
           })}
         </ScrollView>
 
+        {/* Custom date range row */}
+        {dateRange === 'Custom' && (
+          <View style={styles.customDateRow}>
+            <TouchableOpacity
+              style={[styles.customDateBtn, {backgroundColor: cardBg}]}
+              onPress={() => setPickerFor('from')}>
+              <MaterialCommunityIcons name="calendar-start" size={16} color={COLORS.primary} />
+              <Text style={[styles.customDateText, {color: textColor}]}>
+                {dayjs(customFrom).format('DD MMM YYYY')}
+              </Text>
+            </TouchableOpacity>
+            <MaterialCommunityIcons name="arrow-right" size={16} color={COLORS.textSecondary} />
+            <TouchableOpacity
+              style={[styles.customDateBtn, {backgroundColor: cardBg}]}
+              onPress={() => setPickerFor('to')}>
+              <MaterialCommunityIcons name="calendar-end" size={16} color={COLORS.primary} />
+              <Text style={[styles.customDateText, {color: textColor}]}>
+                {dayjs(customTo).format('DD MMM YYYY')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Summary Cards */}
         <View style={styles.summaryRow}>
           <Card style={[styles.summaryCard, {backgroundColor: COLORS.success}]}>
@@ -205,7 +249,20 @@ const ReportsScreen: React.FC = () => {
         </View>
 
         {/* Revenue Chart */}
-        {activeTab === 'Revenue' && revenueData.length > 0 && (
+        {activeTab === 'Revenue' && (dateRange === 'Today' || dateRange === 'Custom') && (
+          <Card style={[styles.chartCard, {backgroundColor: cardBg}]}>
+            <Card.Content style={styles.todaySummary}>
+              <MaterialCommunityIcons name="cash-check" size={40} color={COLORS.success} />
+              <Text style={[styles.todayLabel, {color: COLORS.textSecondary}]}>
+                {dateRange === 'Today' ? "Today's Collection" : `${dayjs(customFrom).format('DD MMM')} – ${dayjs(customTo).format('DD MMM YYYY')}`}
+              </Text>
+              <Text style={[styles.todayAmount, {color: COLORS.success}]}>
+                ₹{totalRevenue.toLocaleString('en-IN')}
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
+        {activeTab === 'Revenue' && dateRange !== 'Today' && dateRange !== 'Custom' && revenueData.length > 0 && (
           <Card style={[styles.chartCard, {backgroundColor: cardBg}]}>
             <Card.Title title="Monthly Revenue" titleVariant="titleMedium" />
             <Card.Content>
@@ -292,6 +349,29 @@ const ReportsScreen: React.FC = () => {
           </Card>
         )}
       </ScrollView>
+
+      <DatePickerModal
+        visible={pickerFor === 'from'}
+        value={customFrom}
+        onConfirm={date => {
+          setCustomFrom(date);
+          if (dayjs(date).isAfter(dayjs(customTo))) setCustomTo(date);
+          setPickerFor(null);
+        }}
+        onCancel={() => setPickerFor(null)}
+        isDark={isDark}
+      />
+      <DatePickerModal
+        visible={pickerFor === 'to'}
+        value={customTo}
+        onConfirm={date => {
+          setCustomTo(date);
+          if (dayjs(date).isBefore(dayjs(customFrom))) setCustomFrom(date);
+          setPickerFor(null);
+        }}
+        onCancel={() => setPickerFor(null)}
+        isDark={isDark}
+      />
     </View>
   );
 };
@@ -340,6 +420,26 @@ const styles = StyleSheet.create({
   },
   profitLabel: {flex: 1, fontSize: 14},
   profitValue: {fontSize: 16, fontWeight: '700'},
+  todaySummary: {alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.sm},
+  todayLabel: {fontSize: 14, fontWeight: '600'},
+  todayAmount: {fontSize: 36, fontWeight: '900'},
+  customDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  customDateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+    elevation: 1,
+  },
+  customDateText: {fontSize: 13, fontWeight: '600'},
 });
 
 export default ReportsScreen;

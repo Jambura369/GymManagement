@@ -128,8 +128,9 @@ export const EXPENSE_CATEGORY_ICONS: Record<string, string> = {
   Electricity: 'flash',
   Equipment: 'dumbbell',
   Maintenance: 'wrench',
-  Marketing: 'megaphone',
+  Marketing: 'bullhorn',
   Misc: 'dots-horizontal',
+  Salary: 'currency-inr',
 };
 
 export const EXPENSE_CATEGORY_COLORS: Record<string, string> = {
@@ -139,6 +140,7 @@ export const EXPENSE_CATEGORY_COLORS: Record<string, string> = {
   Maintenance: '#FF6584',
   Marketing: '#2196F3',
   Misc: '#9E9E9E',
+  Salary: '#00BFA5',
 };
 
 export const ROLE_COLORS: Record<string, string> = {

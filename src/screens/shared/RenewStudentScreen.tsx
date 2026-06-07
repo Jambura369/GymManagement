@@ -77,6 +77,7 @@ const RenewStudentScreen: React.FC = () => {
   });
 
   const joiningDate = watch('joining_date');
+  const paymentType = watch('payment_type');
   const selectedPackageId = watch('package_id');
 
   useEffect(() => {
@@ -228,6 +229,17 @@ const RenewStudentScreen: React.FC = () => {
             )}
           />
 
+          {paymentType === 'QR' && (
+            <TouchableOpacity
+              style={styles.qrBanner}
+              onPress={() => (navigation as any).navigate('PaymentQR')}
+              activeOpacity={0.75}>
+              <MaterialCommunityIcons name="qrcode" size={22} color={COLORS.success} />
+              <Text style={styles.qrBannerText}>Show Payment QR to student</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.success} />
+            </TouchableOpacity>
+          )}
+
           <Controller
             control={control}
             name="amount_paid"
@@ -327,6 +339,19 @@ const styles = StyleSheet.create({
   dateValue: {fontSize: 15, fontWeight: '500', marginTop: 2},
   chipRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm},
   typeChip: {flex: 1},
+  qrBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.success + '15',
+    borderWidth: 1,
+    borderColor: COLORS.success + '40',
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  qrBannerText: {flex: 1, color: COLORS.success, fontWeight: '600', fontSize: 13},
   submitBtn: {marginTop: SPACING.sm},
 });
 

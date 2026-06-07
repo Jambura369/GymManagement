@@ -1,4 +1,4 @@
-import React, {useEffect, useCallback, useState, useRef} from 'react';
+import React, {useCallback, useState, useRef} from 'react';
 import {
   StyleSheet,
   View,
@@ -42,11 +42,11 @@ const StudentListScreen: React.FC = () => {
     isLoading,
     isLoadingMore,
     hasMore,
+    error,
     fetchStudents,
     loadMore,
     setFilter,
     clearFilter,
-    filter,
   } = useStudentStore();
 
   const insets = useSafeAreaInsets();
@@ -59,21 +59,10 @@ const StudentListScreen: React.FC = () => {
   const textColor = isDark ? COLORS.textDark : COLORS.text;
   const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
-  const load = useCallback(
-    (reset = true) => {
-      if (gym) fetchStudents(gym.id, reset);
-    },
-    [gym, fetchStudents],
-  );
-
-  useEffect(() => {
-    load();
-  }, [load, filter]);
-
   useFocusEffect(
     useCallback(() => {
-      load(true);
-    }, [load]),
+      if (gym) fetchStudents(gym.id, true);
+    }, [gym, fetchStudents]),
   );
 
   const onSearchChange = (text: string) => {
@@ -81,6 +70,7 @@ const StudentListScreen: React.FC = () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
       setFilter({search: text});
+      if (gym) fetchStudents(gym.id, true);
     }, 350);
   };
 
@@ -93,6 +83,7 @@ const StudentListScreen: React.FC = () => {
     } else {
       setFilter({verification_status: f as any, is_active: undefined});
     }
+    if (gym) fetchStudents(gym.id, true);
   };
 
   const onRefresh = async () => {
@@ -117,7 +108,7 @@ const StudentListScreen: React.FC = () => {
         }
         activeOpacity={0.7}>
         <View style={styles.cardRow}>
-          <AvatarWithFallback uri={item.image} name={item.name} size={48} />
+          <AvatarWithFallback uri={item.image} name={item.name} size={48} viewable={false} />
           <View style={styles.cardInfo}>
             <Text style={[styles.name, {color: textColor}]} numberOfLines={1}>
               {item.name}
@@ -260,6 +251,17 @@ const StudentListScreen: React.FC = () => {
 
       {isLoading && students.length === 0 ? (
         <CardSkeleton count={6} isDark={isDark} />
+      ) : error && students.length === 0 ? (
+        <View style={styles.errorCenter}>
+          <MaterialCommunityIcons name="wifi-off" size={48} color={COLORS.error} />
+          <Text style={[styles.errorTitle, {color: textColor}]}>Failed to load students</Text>
+          <Text style={[styles.errorMsg, {color: COLORS.textSecondary}]}>{error}</Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, {backgroundColor: COLORS.primary}]}
+            onPress={() => gym && fetchStudents(gym.id, true)}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={students}
@@ -365,6 +367,21 @@ const styles = StyleSheet.create({
     right: SPACING.lg,
     elevation: 4,
   },
+  errorCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+    marginTop: SPACING.xxl,
+  },
+  errorTitle: {fontSize: 17, fontWeight: '700', marginTop: SPACING.md, marginBottom: SPACING.xs},
+  errorMsg: {fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.lg},
+  retryBtn: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.sm + 4,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  retryText: {color: '#FFF', fontWeight: '700', fontSize: 14},
 });
 
 export default StudentListScreen;

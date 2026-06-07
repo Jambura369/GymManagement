@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   StyleSheet,
   View,
@@ -18,7 +18,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import DatePickerModal from '../../components/common/DatePickerModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {showImagePicker} from '../../utils/imagePicker';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import dayjs from 'dayjs';
 
 import {useExpenseStore} from '../../store/expenseStore';
@@ -35,6 +35,7 @@ import {
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
+import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const schema = z.object({
   title: z.string().min(2, 'Title required'),
@@ -55,6 +56,8 @@ const AddExpenseScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const savedRef = useRef(false);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
@@ -76,7 +79,7 @@ const AddExpenseScreen: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', e => {
-      if (!isDirty && !receiptImage) return;
+      if (savedRef.current || (!isDirty && !receiptImage)) return;
       e.preventDefault();
       const {Alert} = require('react-native');
       Alert.alert(
@@ -93,7 +96,7 @@ const AddExpenseScreen: React.FC = () => {
 
 
   const pickReceipt = () => {
-    showImagePicker({quality: 0.8, maxWidth: 1200, maxHeight: 1200}, uri =>
+    showImagePicker(PICKER_PRESETS.RECEIPT, uri =>
       setReceiptImage(uri),
     );
   };
@@ -104,6 +107,7 @@ const AddExpenseScreen: React.FC = () => {
     const success = await addExpense(gym.id, user.id, {...(data as any), receipt_image: receiptImage || undefined});
     setLoading(false);
     if (success) {
+      savedRef.current = true;
       Toast.show({type: 'success', text1: 'Expense Added!', text2: `₹${data.amount} recorded`});
       navigation.goBack();
     } else {
@@ -237,7 +241,10 @@ const AddExpenseScreen: React.FC = () => {
         {/* Receipt Image */}
         <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Receipt (Optional)</Text>
-          <TouchableOpacity style={styles.receiptPicker} onPress={pickReceipt}>
+          <TouchableOpacity
+            style={styles.receiptPicker}
+            activeOpacity={0.8}
+            onPress={() => (receiptImage ? setViewerVisible(true) : pickReceipt())}>
             {receiptImage ? (
               <Image source={{uri: receiptImage}} style={styles.receiptPreview} resizeMode="cover" />
             ) : (
@@ -248,10 +255,16 @@ const AddExpenseScreen: React.FC = () => {
             )}
           </TouchableOpacity>
           {receiptImage && (
-            <TouchableOpacity onPress={() => setReceiptImage(null)} style={styles.removeReceiptBtn}>
-              <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
-              <Text style={[styles.removeReceiptText, {color: COLORS.error}]}>Remove Receipt</Text>
-            </TouchableOpacity>
+            <View style={styles.receiptActions}>
+              <TouchableOpacity onPress={pickReceipt} style={styles.receiptActionBtn}>
+                <MaterialCommunityIcons name="image-edit" size={16} color={COLORS.primary} />
+                <Text style={[styles.receiptActionText, {color: COLORS.primary}]}>Change</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setReceiptImage(null)} style={styles.receiptActionBtn}>
+                <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
+                <Text style={[styles.receiptActionText, {color: COLORS.error}]}>Remove</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -263,6 +276,12 @@ const AddExpenseScreen: React.FC = () => {
           icon="cash-plus"
         />
       </ScrollView>
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        uri={receiptImage}
+        onClose={() => setViewerVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -323,8 +342,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   receiptPlaceholderText: {fontSize: 12, color: COLORS.placeholder},
-  removeReceiptBtn: {flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: SPACING.xs},
-  removeReceiptText: {fontSize: 12, fontWeight: '600'},
+  receiptActions: {flexDirection: 'row', gap: SPACING.lg, marginTop: SPACING.sm},
+  receiptActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  receiptActionText: {fontSize: 12, fontWeight: '600'},
 });
 
 export default AddExpenseScreen;

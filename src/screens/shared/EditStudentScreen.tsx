@@ -5,7 +5,7 @@ import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
-import {showImagePicker} from '../../utils/imagePicker';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
@@ -23,6 +23,7 @@ import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
 import SelectPicker from '../../components/common/SelectPicker';
+import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const PHONE_REGEX = /^[6-9]\d{9}$|^\+?[1-9]\d{7,14}$/;
 
@@ -50,6 +51,7 @@ const EditStudentScreen: React.FC = () => {
   const [fetching, setFetching] = useState(true);
   const [student, setStudent] = useState<Student | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
   const [packages, setPackages] = useState<Package[]>([]);
   const [selectedPackage, setSelectedPackage] = useState('');
 
@@ -103,7 +105,7 @@ const EditStudentScreen: React.FC = () => {
   };
 
   const pickImage = () => {
-    showImagePicker({quality: 0.8, maxWidth: 600, maxHeight: 600}, uri => setImage(uri));
+    showImagePicker(PICKER_PRESETS.AVATAR, uri => setImage(uri));
   };
 
   const onSubmit = async (data: FormData) => {
@@ -163,7 +165,9 @@ const EditStudentScreen: React.FC = () => {
     <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark={isDark} />
       <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.photoContainer} onPress={pickImage}>
+        <TouchableOpacity
+          style={styles.photoContainer}
+          onPress={() => (image ? setViewerVisible(true) : pickImage())}>
           {image ? (
             <Image source={{uri: image}} style={styles.photo} />
           ) : (
@@ -172,6 +176,18 @@ const EditStudentScreen: React.FC = () => {
             </View>
           )}
         </TouchableOpacity>
+        {image && (
+          <View style={styles.photoActions}>
+            <TouchableOpacity onPress={pickImage} style={styles.photoActionBtn}>
+              <MaterialCommunityIcons name="image-edit" size={16} color={COLORS.primary} />
+              <Text style={[styles.photoActionText, {color: COLORS.primary}]}>Change</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setImage(null)} style={styles.photoActionBtn}>
+              <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
+              <Text style={[styles.photoActionText, {color: COLORS.error}]}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
           <Controller control={control} name="name" render={({field: {onChange, value, onBlur}}) => (
@@ -205,6 +221,12 @@ const EditStudentScreen: React.FC = () => {
 
         <AppButton title="Update Student" onPress={handleSubmit(onSubmit)} loading={loading} style={styles.submitBtn} icon="content-save" />
       </ScrollView>
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        uri={image}
+        onClose={() => setViewerVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -216,6 +238,9 @@ const styles = StyleSheet.create({
   photoContainer: {alignSelf: 'center', marginBottom: SPACING.md},
   photo: {width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: COLORS.primary},
   photoPlaceholder: {width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center'},
+  photoActions: {flexDirection: 'row', justifyContent: 'center', gap: SPACING.lg, marginTop: -SPACING.sm, marginBottom: SPACING.md},
+  photoActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  photoActionText: {fontSize: 12, fontWeight: '600'},
   section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   expiryNote: {
     flexDirection: 'row',

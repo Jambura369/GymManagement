@@ -14,7 +14,7 @@ import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {Chip, TextInput} from 'react-native-paper';
-import {showImagePicker} from '../../utils/imagePicker';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -26,6 +26,7 @@ import {addUser} from '../../services/userService';
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
+import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const PHONE_REGEX = /^[6-9]\d{9}$|^\+?[1-9]\d{7,14}$/;
 
@@ -59,6 +60,7 @@ const AddUserScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState<string | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -86,7 +88,7 @@ const AddUserScreen: React.FC = () => {
   const selectedRole = watch('role');
 
   const pickImage = () => {
-    showImagePicker({quality: 0.8, maxWidth: 600, maxHeight: 600}, uri =>
+    showImagePicker(PICKER_PRESETS.AVATAR, uri =>
       setImage(uri),
     );
   };
@@ -137,27 +139,34 @@ const AddUserScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}>
 
         {/* Photo */}
-        <TouchableOpacity style={styles.photoContainer} onPress={pickImage}>
-          {image ? (
-            <Image source={{uri: image}} style={styles.photo} />
-          ) : (
-            <View
-              style={[
-                styles.photoPlaceholder,
-                {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface},
-              ]}>
-              <MaterialCommunityIcons
-                name="camera-plus-outline"
-                size={32}
-                color={COLORS.placeholder}
-              />
-              <Text style={styles.photoText}>Add Photo</Text>
-            </View>
-          )}
-          <View style={styles.photoEditBadge}>
+        <View style={styles.photoContainer}>
+          <TouchableOpacity
+            onPress={() => (image ? setViewerVisible(true) : pickImage())}
+            activeOpacity={0.8}>
+            {image ? (
+              <Image source={{uri: image}} style={styles.photo} />
+            ) : (
+              <View
+                style={[
+                  styles.photoPlaceholder,
+                  {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface},
+                ]}>
+                <MaterialCommunityIcons
+                  name="camera-plus-outline"
+                  size={32}
+                  color={COLORS.placeholder}
+                />
+                <Text style={styles.photoText}>Add Photo</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.photoEditBadge}
+            onPress={pickImage}
+            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
             <MaterialCommunityIcons name="pencil" size={14} color="#FFF" />
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         {/* Role */}
         <View
@@ -307,6 +316,12 @@ const AddUserScreen: React.FC = () => {
           icon="account-plus"
         />
       </ScrollView>
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        uri={image}
+        onClose={() => setViewerVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 };

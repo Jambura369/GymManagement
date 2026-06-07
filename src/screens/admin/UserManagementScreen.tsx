@@ -107,7 +107,7 @@ const UserManagementScreen: React.FC = () => {
 
       <FAB
         icon="account-plus"
-        style={[styles.fab, {backgroundColor: COLORS.primary}]}
+        style={[styles.fab, {backgroundColor: COLORS.primary, bottom: insets.bottom + SPACING.lg}]}
         color="#FFF"
         onPress={() => navigation.navigate('AddUser')}
       />

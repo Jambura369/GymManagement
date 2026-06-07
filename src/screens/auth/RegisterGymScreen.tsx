@@ -13,7 +13,7 @@ import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {TextInput} from 'react-native-paper';
-import {showImagePicker} from '../../utils/imagePicker';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -84,7 +84,7 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
   });
 
   const pickImage = (type: 'logo' | 'qr') => {
-    showImagePicker({quality: 0.8, maxWidth: 800, maxHeight: 800}, uri => {
+    showImagePicker(PICKER_PRESETS.LOGO, uri => {
       if (type === 'logo') setGymLogo(uri);
       else setPaymentQr(uri);
     });

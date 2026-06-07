@@ -12,7 +12,7 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import {Card, Switch} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {showImagePicker} from '../../utils/imagePicker';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -24,6 +24,7 @@ import {uploadImage} from '../../services/storageService';
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
+import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const GymSettingsScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -37,13 +38,14 @@ const GymSettingsScreen: React.FC = () => {
   const [gymLogo, setGymLogo] = useState<string | null>(gym?.gym_logo || null);
   const [paymentQr, setPaymentQr] = useState<string | null>(gym?.payment_qr || null);
   const [loading, setLoading] = useState(false);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
   const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
   const pickImage = (type: 'logo' | 'qr') => {
-    showImagePicker({quality: 0.8}, uri => {
+    showImagePicker(PICKER_PRESETS.LOGO, uri => {
       if (type === 'logo') setGymLogo(uri);
       else setPaymentQr(uri);
     });
@@ -170,34 +172,48 @@ const GymSettingsScreen: React.FC = () => {
             <View style={styles.imageRow}>
               <View style={styles.imageSection}>
                 <Text style={[styles.imageLabel, {color: COLORS.textSecondary}]}>Gym Logo</Text>
-                <TouchableOpacity onPress={() => pickImage('logo')} activeOpacity={0.7}>
-                  {gymLogo ? (
-                    <Image source={{uri: gymLogo}} style={styles.logo} />
-                  ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <MaterialCommunityIcons name="store-outline" size={28} color={COLORS.placeholder} />
-                    </View>
-                  )}
-                  <View style={styles.editBadge}>
+                <View>
+                  <TouchableOpacity
+                    onPress={() => (gymLogo ? setViewerUri(gymLogo) : pickImage('logo'))}
+                    activeOpacity={0.7}>
+                    {gymLogo ? (
+                      <Image source={{uri: gymLogo}} style={styles.logo} />
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <MaterialCommunityIcons name="store-outline" size={28} color={COLORS.placeholder} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.editBadge}
+                    onPress={() => pickImage('logo')}
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                     <MaterialCommunityIcons name="pencil" size={12} color="#FFF" />
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.imageSection}>
                 <Text style={[styles.imageLabel, {color: COLORS.textSecondary}]}>Payment QR</Text>
-                <TouchableOpacity onPress={() => pickImage('qr')} activeOpacity={0.7}>
-                  {paymentQr ? (
-                    <Image source={{uri: paymentQr}} style={styles.logo} />
-                  ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <MaterialCommunityIcons name="qrcode" size={28} color={COLORS.placeholder} />
-                    </View>
-                  )}
-                  <View style={styles.editBadge}>
+                <View>
+                  <TouchableOpacity
+                    onPress={() => (paymentQr ? setViewerUri(paymentQr) : pickImage('qr'))}
+                    activeOpacity={0.7}>
+                    {paymentQr ? (
+                      <Image source={{uri: paymentQr}} style={styles.logo} />
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <MaterialCommunityIcons name="qrcode" size={28} color={COLORS.placeholder} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.editBadge}
+                    onPress={() => pickImage('qr')}
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                     <MaterialCommunityIcons name="pencil" size={12} color="#FFF" />
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -234,7 +250,6 @@ const GymSettingsScreen: React.FC = () => {
           <Card.Title title="Account Info" />
           <Card.Content>
             <SettingRow icon="email" label="Owner Email" value={gym?.email} />
-            <SettingRow icon="identifier" label="Gym ID" value={gym?.id?.slice(0, 8) + '...'} />
             <SettingRow icon="calendar" label="Registered" value={gym?.created_at ? new Date(gym.created_at).toLocaleDateString() : ''} />
           </Card.Content>
         </Card>
@@ -267,6 +282,12 @@ const GymSettingsScreen: React.FC = () => {
           </Card>
         )}
       </ScrollView>
+
+      <ImageViewerModal
+        visible={!!viewerUri}
+        uri={viewerUri}
+        onClose={() => setViewerUri(null)}
+      />
     </KeyboardAvoidingView>
   );
 };

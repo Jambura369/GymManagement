@@ -417,6 +417,20 @@ export const rejectVerification = async (
   }
 };
 
+// ---- Sync expired memberships ----
+// Sets is_active=false for any student whose membership_expiry has passed.
+// Called before loading dashboard stats to keep counts accurate.
+export const syncExpiredMemberships = async (gymId: string): Promise<void> => {
+  const today = dayjs().format('YYYY-MM-DD');
+  await supabase
+    .from('students')
+    .update({is_active: false})
+    .eq('gym_id', gymId)
+    .eq('is_active', true)
+    .not('membership_expiry', 'is', null)
+    .lt('membership_expiry', today);
+};
+
 // ---- Get expiring memberships ----
 export const getExpiringMemberships = async (
   gymId: string,

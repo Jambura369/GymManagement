@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 import {DashboardStats, MonthlyChartData} from '../types';
 import {getDashboardStats, getMonthlyRevenue} from '../services/dashboardService';
+import {syncExpiredMemberships} from '../services/studentService';
 
 interface DashboardState {
   stats: DashboardStats | null;
@@ -43,6 +44,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   // Always fetches fresh data (used by pull-to-refresh)
   refresh: async (gymId) => {
+    // Sync expired memberships first so stats reflect the true active count
+    await syncExpiredMemberships(gymId);
     await Promise.all([get().fetchStats(gymId), get().fetchChartData(gymId)]);
   },
 

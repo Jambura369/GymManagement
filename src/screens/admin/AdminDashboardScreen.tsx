@@ -3,6 +3,7 @@ import {
   StyleSheet,
   View,
   Text,
+  Image,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -26,6 +27,7 @@ import StatCard from '../../components/common/StatCard';
 import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 import GymblixLogo from '../../components/common/GymblixLogo';
 import {getExpiryAlerts} from '../../services/studentService';
+import {formatExpiryLabel} from '../../utils/dateUtils';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'Dashboard'>,
@@ -68,9 +70,7 @@ const AdminDashboardScreen: React.FC = () => {
   const formatCurrency = (v: number) =>
     `₹${v.toLocaleString('en-IN', {maximumFractionDigits: 0})}`;
 
-  const profit = stats
-    ? stats.revenue_this_month - stats.expense_this_month - stats.salary_this_month
-    : 0;
+  const profit = stats ? stats.profit_this_month : 0;
 
   if (isLoading && !stats) {
     return (
@@ -95,29 +95,11 @@ const AdminDashboardScreen: React.FC = () => {
     );
   }
 
-  const formatExpiryLabel = (expiryDate: string) => {
-    const today = dayjs().startOf('day');
-    const expiry = dayjs(expiryDate).startOf('day');
-    const diffDays = expiry.diff(today, 'day');
-    if (diffDays === 0) return 'Expires today!';
-    if (diffDays > 0) {
-      if (diffDays < 30) return `Expires in ${diffDays} day${diffDays === 1 ? '' : 's'}`;
-      const m = Math.floor(diffDays / 30);
-      const d = diffDays % 30;
-      return d > 0 ? `Expires in ${m}m ${d}d` : `Expires in ${m} month${m > 1 ? 's' : ''}`;
-    }
-    const abs = Math.abs(diffDays);
-    if (abs < 30) return `Expired ${abs} day${abs === 1 ? '' : 's'} ago`;
-    const m = Math.floor(abs / 30);
-    const d = abs % 30;
-    return d > 0 ? `Expired ${m}m ${d}d ago` : `Expired ${m} month${m > 1 ? 's' : ''} ago`;
-  };
-
   const ExpiryItem = ({item}: {item: Student}) => {
     if (!item.membership_expiry) return null;
+    const {label, isExpired} = formatExpiryLabel(item.membership_expiry);
     const diffDays = dayjs(item.membership_expiry).startOf('day').diff(dayjs().startOf('day'), 'day');
-    const isExpired = diffDays < 0;
-    const isUrgent = diffDays >= 0 && diffDays <= 3;
+    const isUrgent = !isExpired && diffDays <= 3;
     const color = isExpired ? COLORS.error : isUrgent ? COLORS.warning : COLORS.info;
 
     return (
@@ -135,9 +117,7 @@ const AdminDashboardScreen: React.FC = () => {
             <Text style={[styles.expiryName, {color: textColor}]} numberOfLines={1}>
               {item.name}
             </Text>
-            <Text style={[styles.expiryDate, {color}]}>
-              {formatExpiryLabel(item.membership_expiry)}
-            </Text>
+            <Text style={[styles.expiryDate, {color}]}>{label}</Text>
           </View>
           <TouchableOpacity
             style={[styles.callBtn, {backgroundColor: COLORS.success + '20'}]}
@@ -169,7 +149,11 @@ const AdminDashboardScreen: React.FC = () => {
         style={[styles.header, {paddingTop: insets.top + SPACING.md}]}>
         <View style={styles.headerDecor} />
         <View style={styles.headerRow}>
-          <GymblixLogo size={44} />
+          {gym?.gym_logo ? (
+            <Image source={{uri: gym.gym_logo}} style={styles.gymLogo} />
+          ) : (
+            <GymblixLogo size={44} />
+          )}
           <View style={styles.headerText}>
             <Text style={styles.greeting}>
               {dayjs().hour() < 12 ? 'Good Morning' : dayjs().hour() < 17 ? 'Good Afternoon' : 'Good Evening'}
@@ -375,6 +359,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+  },
+  gymLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   headerText: {flex: 1},
   greeting: {color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '500'},

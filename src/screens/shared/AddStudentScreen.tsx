@@ -16,7 +16,7 @@ import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {Chip} from 'react-native-paper';
-import {showImagePicker} from '../../utils/imagePicker';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import DatePickerModal from '../../components/common/DatePickerModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -33,6 +33,7 @@ import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
 import SelectPicker from '../../components/common/SelectPicker';
+import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const PHONE_REGEX = /^[6-9]\d{9}$|^\+?[1-9]\d{7,14}$/;
 
@@ -63,6 +64,7 @@ const AddStudentScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState<string | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
   const savedRef = useRef(false);
   const [packages, setPackages] = useState<Package[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
@@ -95,6 +97,7 @@ const AddStudentScreen: React.FC = () => {
   });
 
   const joiningDate = watch('joining_date');
+  const paymentType = watch('payment_type');
   const selectedPackageId = watch('package_id');
 
 
@@ -147,7 +150,7 @@ const AddStudentScreen: React.FC = () => {
   };
 
   const pickImage = () => {
-    showImagePicker({quality: 0.8, maxWidth: 600, maxHeight: 600}, uri =>
+    showImagePicker(PICKER_PRESETS.AVATAR, uri =>
       setImage(uri),
     );
   };
@@ -206,7 +209,9 @@ const AddStudentScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}>
 
         {/* Photo */}
-        <TouchableOpacity style={styles.photoContainer} onPress={pickImage}>
+        <TouchableOpacity
+          style={styles.photoContainer}
+          onPress={() => (image ? setViewerVisible(true) : pickImage())}>
           {image ? (
             <Image source={{uri: image}} style={styles.photo} />
           ) : (
@@ -220,6 +225,18 @@ const AddStudentScreen: React.FC = () => {
             </View>
           )}
         </TouchableOpacity>
+        {image && (
+          <View style={styles.photoActions}>
+            <TouchableOpacity onPress={pickImage} style={styles.photoActionBtn}>
+              <MaterialCommunityIcons name="image-edit" size={16} color={COLORS.primary} />
+              <Text style={[styles.photoActionText, {color: COLORS.primary}]}>Change</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setImage(null)} style={styles.photoActionBtn}>
+              <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
+              <Text style={[styles.photoActionText, {color: COLORS.error}]}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Personal Info */}
         <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
@@ -373,6 +390,17 @@ const AddStudentScreen: React.FC = () => {
             )}
           />
 
+          {paymentType === 'QR' && (
+            <TouchableOpacity
+              style={styles.qrBanner}
+              onPress={() => navigation.navigate('PaymentQR')}
+              activeOpacity={0.75}>
+              <MaterialCommunityIcons name="qrcode" size={22} color={COLORS.success} />
+              <Text style={styles.qrBannerText}>Show Payment QR to student</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.success} />
+            </TouchableOpacity>
+          )}
+
           <Controller
             control={control}
             name="amount_paid"
@@ -422,6 +450,12 @@ const AddStudentScreen: React.FC = () => {
             : 'Student will be activated immediately.'}
         </Text>
       </ScrollView>
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        uri={image}
+        onClose={() => setViewerVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -449,6 +483,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   photoText: {fontSize: 11, color: COLORS.placeholder, marginTop: 4},
+  photoActions: {flexDirection: 'row', justifyContent: 'center', gap: SPACING.lg, marginTop: -SPACING.sm, marginBottom: SPACING.md},
+  photoActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  photoActionText: {fontSize: 12, fontWeight: '600'},
   section: {
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
@@ -477,6 +514,19 @@ const styles = StyleSheet.create({
   fieldLabel: {fontSize: 12, marginBottom: SPACING.xs, marginLeft: 4},
   chipRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm},
   typeChip: {flex: 1},
+  qrBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.success + '15',
+    borderWidth: 1,
+    borderColor: COLORS.success + '40',
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  qrBannerText: {flex: 1, color: COLORS.success, fontWeight: '600', fontSize: 13},
   submitBtn: {marginTop: SPACING.sm},
   hint: {
     textAlign: 'center',

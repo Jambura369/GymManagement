@@ -10,6 +10,7 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {FAB, Card, Chip, Menu} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 
@@ -45,6 +46,7 @@ const PackageListScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {gym, user} = useAuthStore();
   const {isDark} = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -243,7 +245,7 @@ const PackageListScreen: React.FC = () => {
           data={filteredPackages}
           keyExtractor={item => item.id}
           renderItem={renderPackage}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, {paddingBottom: 96 + insets.bottom}]}
           ListEmptyComponent={
             <EmptyState
               icon="package-variant-closed"
@@ -263,7 +265,7 @@ const PackageListScreen: React.FC = () => {
       {(user?.role === 'Admin' || user?.role === 'Manager') && (
         <FAB
           icon="plus"
-          style={[styles.fab, {backgroundColor: COLORS.primary}]}
+          style={[styles.fab, {backgroundColor: COLORS.primary, bottom: insets.bottom + SPACING.lg}]}
           color="#FFF"
           onPress={() => navigation.navigate('AddPackage')}
         />

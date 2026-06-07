@@ -7,6 +7,7 @@ import {
   Platform,
   TouchableOpacity,
   Text,
+  Image,
 } from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
@@ -17,15 +18,18 @@ import DatePickerModal from '../../components/common/DatePickerModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 
 import {useExpenseStore} from '../../store/expenseStore';
 import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS, EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS, EXPENSE_CATEGORY_ICONS} from '../../constants';
+import {COLORS, SPACING, BORDER_RADIUS, EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS, EXPENSE_CATEGORY_ICONS, SUPABASE_BUCKETS} from '../../constants';
 import {RootStackParamList, Expense} from '../../types';
 import {supabase} from '../../supabase/client';
+import {uploadImage} from '../../services/storageService';
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import AppHeader from '../../components/common/AppHeader';
+import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const schema = z.object({
   title: z.string().min(2, 'Title required'),
@@ -47,6 +51,10 @@ const EditExpenseScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [originalReceipt, setOriginalReceipt] = useState<string | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
@@ -77,13 +85,42 @@ const EditExpenseScreen: React.FC = () => {
         expense_date: data.expense_date,
         description: data.description || '',
       });
+      setReceiptImage(data.receipt_image || null);
+      setOriginalReceipt(data.receipt_image || null);
+      setImgError(false);
       setInitialLoaded(true);
     }
   };
 
+  const pickReceipt = () => {
+    showImagePicker(PICKER_PRESETS.RECEIPT, uri =>
+      setReceiptImage(uri),
+    );
+  };
+
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-    const success = await updateExpense(route.params.expenseId, data as any);
+
+    // Resolve receipt: upload if newly picked, keep URL if unchanged, null if removed
+    let receiptUrl = originalReceipt;
+    if (receiptImage !== originalReceipt) {
+      if (receiptImage) {
+        const res = await uploadImage(
+          receiptImage,
+          SUPABASE_BUCKETS.RECEIPTS,
+          `${data.expense_date}/${Date.now()}`,
+          originalReceipt || undefined,
+        );
+        receiptUrl = res.data ?? originalReceipt;
+      } else {
+        receiptUrl = null;
+      }
+    }
+
+    const success = await updateExpense(route.params.expenseId, {
+      ...(data as any),
+      receipt_image: receiptUrl,
+    });
     setLoading(false);
     if (success) {
       Toast.show({type: 'success', text1: 'Expense Updated!'});
@@ -174,8 +211,54 @@ const EditExpenseScreen: React.FC = () => {
           />
         </View>
 
+        {/* Receipt Image */}
+        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Receipt</Text>
+          <TouchableOpacity
+            style={styles.receiptPicker}
+            activeOpacity={0.8}
+            onPress={() => (receiptImage && !imgError ? setViewerVisible(true) : pickReceipt())}>
+            {receiptImage && !imgError ? (
+              <Image
+                source={{uri: receiptImage}}
+                style={styles.receiptPreview}
+                resizeMode="cover"
+                onError={() => setImgError(true)}
+              />
+            ) : receiptImage && imgError ? (
+              <View style={[styles.receiptPlaceholder, {gap: 6}]}>
+                <MaterialCommunityIcons name="image-broken-variant" size={28} color={COLORS.placeholder} />
+                <Text style={styles.receiptPlaceholderText}>Tap to replace image</Text>
+              </View>
+            ) : (
+              <View style={styles.receiptPlaceholder}>
+                <MaterialCommunityIcons name="camera-plus-outline" size={28} color={COLORS.placeholder} />
+                <Text style={styles.receiptPlaceholderText}>Add Receipt Photo</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {receiptImage && (
+            <View style={styles.receiptActions}>
+              <TouchableOpacity onPress={pickReceipt} style={styles.receiptActionBtn}>
+                <MaterialCommunityIcons name="image-edit" size={16} color={COLORS.primary} />
+                <Text style={[styles.receiptActionText, {color: COLORS.primary}]}>Change</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setReceiptImage(null)} style={styles.receiptActionBtn}>
+                <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
+                <Text style={[styles.receiptActionText, {color: COLORS.error}]}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         <AppButton title="Update Expense" onPress={handleSubmit(onSubmit)} loading={loading} style={styles.submitBtn} icon="content-save" />
       </ScrollView>
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        uri={receiptImage}
+        onClose={() => setViewerVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -193,6 +276,22 @@ const styles = StyleSheet.create({
   dateLabel: {fontSize: 12, color: COLORS.textSecondary},
   dateValue: {fontSize: 15, fontWeight: '500', marginTop: 2},
   submitBtn: {marginTop: SPACING.sm},
+  receiptPicker: {borderRadius: BORDER_RADIUS.md, overflow: 'hidden'},
+  receiptPreview: {width: '100%', height: 160, borderRadius: BORDER_RADIUS.md},
+  receiptPlaceholder: {
+    height: 100,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  receiptPlaceholderText: {fontSize: 12, color: COLORS.placeholder},
+  receiptActions: {flexDirection: 'row', gap: SPACING.lg, marginTop: SPACING.sm},
+  receiptActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  receiptActionText: {fontSize: 12, fontWeight: '600'},
 });
 
 export default EditExpenseScreen;

@@ -57,6 +57,7 @@ const MoreScreen: React.FC = () => {
       title: 'Gym Management',
       items: [
         {icon: 'account-clock', label: 'Verification Requests', route: 'VerificationList', color: COLORS.warning},
+        {icon: 'qrcode', label: 'Payment QR', route: 'PaymentQR', color: COLORS.success},
         {icon: 'package-variant', label: 'Packages', route: 'PackageList', color: COLORS.info, managerAndAdmin: true},
         {icon: 'currency-inr', label: 'Trainer Salary', route: 'AddSalary', color: COLORS.success, managerAndAdmin: true},
         {icon: 'chart-bar', label: 'Reports', route: 'Reports', color: COLORS.secondary, managerAndAdmin: true},

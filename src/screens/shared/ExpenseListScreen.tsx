@@ -3,6 +3,7 @@ import {
   StyleSheet,
   View,
   Text,
+  Image,
   FlatList,
   ScrollView,
   TouchableOpacity,
@@ -26,16 +27,45 @@ import {
   EXPENSE_CATEGORY_COLORS,
   EXPENSE_CATEGORY_ICONS,
 } from '../../constants';
-import {RootStackParamList, Expense} from '../../types';
+import {RootStackParamList, Expense, TrainerSalary} from '../../types';
+import {fetchSalaries} from '../../services/salaryService';
 import SearchBar from '../../components/common/SearchBar';
 import EmptyState from '../../components/common/EmptyState';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import AppHeader from '../../components/common/AppHeader';
+import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const CATEGORY_FILTERS = ['All', 'Rent', 'Electricity', 'Equipment', 'Maintenance', 'Marketing', 'Misc'];
+const CATEGORY_FILTERS = ['All', 'Salary', 'Rent', 'Electricity', 'Equipment', 'Maintenance', 'Marketing', 'Misc'];
+
+type CombinedItem =
+  | {kind: 'expense'; data: Expense}
+  | {kind: 'salary'; data: TrainerSalary};
+
+const ReceiptThumb: React.FC<{uri: string; catColor: string; catIcon: string; onPress: () => void}> = ({uri, catColor, catIcon, onPress}) => {
+  const [imgError, setImgError] = React.useState(false);
+
+  if (imgError) {
+    return (
+      <View style={[styles.iconContainer, {backgroundColor: catColor + '20'}]}>
+        <MaterialCommunityIcons name={catIcon} size={22} color={catColor} />
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
+      <Image
+        source={{uri}}
+        style={styles.receiptThumb}
+        resizeMode="cover"
+        onError={() => setImgError(true)}
+      />
+    </TouchableOpacity>
+  );
+};
 
 const ExpenseListScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
@@ -62,10 +92,18 @@ const ExpenseListScreen: React.FC = () => {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [salaries, setSalaries] = useState<TrainerSalary[]>([]);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
   const cardBg = isDark ? COLORS.cardDark : COLORS.card;
+
+  const loadSalaries = useCallback(async () => {
+    if (!gym) return;
+    const result = await fetchSalaries(gym.id);
+    if (result.data) setSalaries(result.data);
+  }, [gym]);
 
   const load = useCallback(
     (reset = true) => {
@@ -76,6 +114,7 @@ const ExpenseListScreen: React.FC = () => {
 
   useEffect(() => {
     load();
+    loadSalaries();
   }, []);
 
   const onSearchChange = (text: string) => {
@@ -89,15 +128,39 @@ const ExpenseListScreen: React.FC = () => {
 
   const onCategoryFilter = (cat: string) => {
     setActiveCategory(cat);
-    setFilter({category: cat === 'All' ? undefined : (cat as any)});
-    load();
+    if (cat !== 'Salary') {
+      setFilter({category: cat === 'All' ? undefined : (cat as any)});
+      load();
+    }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchExpenses(gym!.id, true);
+    await Promise.all([fetchExpenses(gym!.id, true), loadSalaries()]);
     setRefreshing(false);
   };
+
+  // Build the combined list based on active category filter
+  const combinedItems: CombinedItem[] = (() => {
+    if (activeCategory === 'Salary') {
+      const filtered = search
+        ? salaries.filter(s =>
+            (s.trainer as any)?.name?.toLowerCase().includes(search.toLowerCase()),
+          )
+        : salaries;
+      return filtered.map(s => ({kind: 'salary', data: s}));
+    }
+    if (activeCategory === 'All') {
+      const salaryItems: CombinedItem[] = salaries.map(s => ({kind: 'salary', data: s}));
+      const expenseItems: CombinedItem[] = expenses.map(e => ({kind: 'expense', data: e}));
+      return [...expenseItems, ...salaryItems].sort((a, b) => {
+        const dateA = a.kind === 'expense' ? a.data.expense_date : a.data.payment_date;
+        const dateB = b.kind === 'expense' ? b.data.expense_date : b.data.payment_date;
+        return dayjs(dateB).diff(dayjs(dateA));
+      });
+    }
+    return expenses.map(e => ({kind: 'expense', data: e}));
+  })();
 
   const handleDelete = async () => {
     if (!selectedExpense) return;
@@ -112,46 +175,100 @@ const ExpenseListScreen: React.FC = () => {
     }
   };
 
-  const totalAmount = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const totalAmount =
+    expenses.reduce((s, e) => s + Number(e.amount), 0) +
+    (activeCategory === 'All' || activeCategory === 'Salary'
+      ? salaries.reduce((s, sal) => s + Number(sal.salary_amount), 0)
+      : 0);
 
-  const renderExpense = ({item}: {item: Expense}) => {
-    const catColor = EXPENSE_CATEGORY_COLORS[item.category] || COLORS.textSecondary;
-    const catIcon = EXPENSE_CATEGORY_ICONS[item.category] || 'cash';
+  const renderItem = ({item}: {item: CombinedItem}) => {
+    if (item.kind === 'salary') {
+      const sal = item.data;
+      const catColor = EXPENSE_CATEGORY_COLORS.Salary;
+      const trainerName = (sal.trainer as any)?.name || 'Trainer';
+      return (
+        <Card
+          style={[styles.card, {backgroundColor: cardBg}]}
+          onPress={() => navigation.navigate('EditSalary', {salaryId: sal.id})}>
+          <Card.Content style={styles.cardContent}>
+            <View style={[styles.iconContainer, {backgroundColor: catColor + '20'}]}>
+              <MaterialCommunityIcons name="currency-inr" size={22} color={catColor} />
+            </View>
+            <View style={styles.expenseInfo}>
+              <Text style={[styles.title, {color: textColor}]} numberOfLines={1}>
+                Salary — {trainerName}
+              </Text>
+              <Text style={[styles.description, {color: COLORS.textSecondary}]}>
+                {sal.payment_type}
+              </Text>
+              <View style={styles.metaRow}>
+                <View style={[styles.categoryBadge, {backgroundColor: catColor + '20'}]}>
+                  <Text style={[styles.categoryText, {color: catColor}]}>Salary</Text>
+                </View>
+                <Text style={[styles.date, {color: COLORS.textSecondary}]}>
+                  {dayjs(sal.payment_date).format('DD MMM YYYY')}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.amountContainer}>
+              <Text style={[styles.amount, {color: COLORS.error}]}>
+                ₹{Number(sal.salary_amount).toLocaleString('en-IN')}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+      );
+    }
+
+    const expense = item.data;
+    const catColor = EXPENSE_CATEGORY_COLORS[expense.category] || COLORS.textSecondary;
+    const catIcon = EXPENSE_CATEGORY_ICONS[expense.category] || 'cash';
 
     return (
       <Card
         style={[styles.card, {backgroundColor: cardBg}]}
-        onPress={() =>
-          navigation.navigate('EditExpense', {expenseId: item.id})
-        }>
+        onPress={() => navigation.navigate('ExpenseDetail', {expenseId: expense.id})}>
         <Card.Content style={styles.cardContent}>
-          <View
-            style={[styles.iconContainer, {backgroundColor: catColor + '20'}]}>
-            <MaterialCommunityIcons name={catIcon} size={22} color={catColor} />
-          </View>
+          {expense.receipt_image ? (
+            <ReceiptThumb
+              uri={expense.receipt_image}
+              catColor={catColor}
+              catIcon={catIcon}
+              onPress={() => setViewerUri(expense.receipt_image)}
+            />
+          ) : (
+            <View style={[styles.iconContainer, {backgroundColor: catColor + '20'}]}>
+              <MaterialCommunityIcons name={catIcon} size={22} color={catColor} />
+            </View>
+          )}
           <View style={styles.expenseInfo}>
-            <Text style={[styles.title, {color: textColor}]} numberOfLines={1}>
-              {item.title}
+            <Text style={[styles.title, {color: textColor}]} numberOfLines={2}>
+              {expense.title}
             </Text>
+            {expense.description ? (
+              <Text style={[styles.description, {color: COLORS.textSecondary}]}>
+                {expense.description}
+              </Text>
+            ) : null}
             <View style={styles.metaRow}>
               <View style={[styles.categoryBadge, {backgroundColor: catColor + '20'}]}>
-                <Text style={[styles.categoryText, {color: catColor}]}>{item.category}</Text>
+                <Text style={[styles.categoryText, {color: catColor}]}>{expense.category}</Text>
               </View>
               <Text style={[styles.date, {color: COLORS.textSecondary}]}>
-                {dayjs(item.expense_date).format('DD MMM YYYY')}
+                {dayjs(expense.expense_date).format('DD MMM YYYY')}
               </Text>
             </View>
           </View>
           <View style={styles.amountContainer}>
             <Text style={[styles.amount, {color: COLORS.error}]}>
-              ₹{Number(item.amount).toLocaleString('en-IN')}
+              ₹{Number(expense.amount).toLocaleString('en-IN')}
             </Text>
             {(user?.role === 'Admin' || user?.role === 'Manager') && (
               <Menu
-                visible={menuId === item.id}
+                visible={menuId === expense.id}
                 onDismiss={() => setMenuId(null)}
                 anchor={
-                  <TouchableOpacity onPress={() => setMenuId(item.id)}>
+                  <TouchableOpacity onPress={() => setMenuId(expense.id)}>
                     <MaterialCommunityIcons
                       name="dots-vertical"
                       size={20}
@@ -162,15 +279,7 @@ const ExpenseListScreen: React.FC = () => {
                 <Menu.Item
                   onPress={() => {
                     setMenuId(null);
-                    navigation.navigate('EditExpense', {expenseId: item.id});
-                  }}
-                  title="Edit"
-                  leadingIcon="pencil"
-                />
-                <Menu.Item
-                  onPress={() => {
-                    setMenuId(null);
-                    setSelectedExpense(item);
+                    setSelectedExpense(expense);
                     setDeleteDialog(true);
                   }}
                   title="Delete"
@@ -254,13 +363,13 @@ const ExpenseListScreen: React.FC = () => {
         })}
       </ScrollView>
 
-      {isLoading && expenses.length === 0 ? (
+      {isLoading && combinedItems.length === 0 ? (
         <CardSkeleton count={5} isDark={isDark} />
       ) : (
         <FlatList
-          data={expenses}
-          keyExtractor={item => item.id}
-          renderItem={renderExpense}
+          data={combinedItems}
+          keyExtractor={item => `${item.kind}-${item.data.id}`}
+          renderItem={renderItem}
           contentContainerStyle={[styles.list, {paddingBottom: 80 + insets.bottom}]}
           ListEmptyComponent={
             <EmptyState
@@ -272,7 +381,7 @@ const ExpenseListScreen: React.FC = () => {
               isDark={isDark}
             />
           }
-          onEndReached={() => hasMore && gym && loadMore(gym.id)}
+          onEndReached={() => activeCategory !== 'Salary' && hasMore && gym && loadMore(gym.id)}
           onEndReachedThreshold={0.3}
           refreshControl={
             <RefreshControl
@@ -304,6 +413,12 @@ const ExpenseListScreen: React.FC = () => {
         confirmColor={COLORS.error}
         loading={deleting}
       />
+
+      <ImageViewerModal
+        visible={!!viewerUri}
+        uri={viewerUri}
+        onClose={() => setViewerUri(null)}
+      />
     </View>
   );
 };
@@ -328,7 +443,7 @@ const styles = StyleSheet.create({
   filterTabText: {fontSize: 13},
   list: {padding: SPACING.md},
   card: {borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.sm, elevation: 2},
-  cardContent: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm},
+  cardContent: {flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm},
   iconContainer: {
     width: 48,
     height: 48,
@@ -336,8 +451,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  receiptThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.border,
+  },
   expenseInfo: {flex: 1},
-  title: {fontSize: 15, fontWeight: '600', marginBottom: 4},
+  title: {fontSize: 15, fontWeight: '600', marginBottom: 2},
+  description: {fontSize: 12, marginBottom: 4, lineHeight: 16},
   metaRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.xs},
   categoryBadge: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10},
   categoryText: {fontSize: 10, fontWeight: '600'},

@@ -1,6 +1,9 @@
 import {supabase} from '../supabase/client';
 import {ApiResponse} from '../types';
 
+// 4 MB limit — picker already resizes/compresses, this is a hard safety net.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
 const getMimeType = (uri: string): string => {
   if (uri.startsWith('data:')) {
     const match = uri.match(/^data:([^;]+);/);
@@ -40,11 +43,17 @@ export const uploadImage = async (
     const ext = getExtension(mimeType);
     const fileName = `${path}_${Date.now()}.${ext}`;
 
+    // base64 string length × 0.75 ≈ decoded byte count
+    const base64Preview = fileUri.split(',')[1] ?? '';
+    if (base64Preview.length * 0.75 > MAX_UPLOAD_BYTES) {
+      return {data: null, error: 'Image is too large. Please choose an image under 4 MB.'};
+    }
+
     // Decode base64 → Uint8Array.
     // supabase storage-js sends Uint8Array via the direct (non-FormData) code
     // path, setting Content-Type from fileOptions. React Native fetch handles
     // Uint8Array bodies as binary since RN 0.72.
-    const base64 = fileUri.split(',')[1];
+    const base64 = base64Preview;
     const binaryStr = atob(base64);
     const bytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {

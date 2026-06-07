@@ -34,10 +34,12 @@ import ReportsScreen from '../screens/shared/ReportsScreen';
 import UserManagementScreen from '../screens/admin/UserManagementScreen';
 import AddUserScreen from '../screens/admin/AddUserScreen';
 import AddExpenseScreen from '../screens/shared/AddExpenseScreen';
+import ExpenseDetailScreen from '../screens/shared/ExpenseDetailScreen';
 import EditExpenseScreen from '../screens/shared/EditExpenseScreen';
 import AddSalaryScreen from '../screens/shared/AddSalaryScreen';
 import EditSalaryScreen from '../screens/shared/EditSalaryScreen';
 import ExpiryListScreen from '../screens/shared/ExpiryListScreen';
+import PaymentQRScreen from '../screens/shared/PaymentQRScreen';
 
 import {RootStackParamList} from '../types';
 
@@ -120,10 +122,12 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="UserManagement" component={UserManagementScreen} />
             <Stack.Screen name="AddUser" component={AddUserScreen} />
             <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
+            <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
             <Stack.Screen name="EditExpense" component={EditExpenseScreen} />
             <Stack.Screen name="AddSalary" component={AddSalaryScreen} />
             <Stack.Screen name="EditSalary" component={EditSalaryScreen} />
             <Stack.Screen name="ExpiryList" component={ExpiryListScreen} />
+            <Stack.Screen name="PaymentQR" component={PaymentQRScreen} />
           </>
         )}
       </Stack.Navigator>
