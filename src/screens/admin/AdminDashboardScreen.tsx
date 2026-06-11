@@ -21,11 +21,15 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
 import {useDashboardStore} from '../../store/dashboardStore';
+import {useSubscriptionStore} from '../../store/subscriptionStore';
+import {useFeature} from '../../hooks/useFeature';
 import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
 import {RootStackParamList, TabParamList, Student} from '../../types';
 import StatCard from '../../components/common/StatCard';
 import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 import GymblixLogo from '../../components/common/GymblixLogo';
+import TrialBanner from '../../components/common/TrialBanner';
+import UpgradeBanner from '../../components/common/UpgradeBanner';
 import {getExpiryAlerts} from '../../services/studentService';
 import {formatExpiryLabel} from '../../utils/dateUtils';
 
@@ -40,6 +44,10 @@ const AdminDashboardScreen: React.FC = () => {
   const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
   const {stats, isLoading, error: dashboardError, refresh, refreshIfStale} = useDashboardStore();
+  const {status: subStatus, trialDaysLeft, trialEndsAt, plan, fetchSubscription, getLimitStatus} =
+    useSubscriptionStore();
+  const {hasAccess: hasReports} = useFeature('basic_reports');
+  const {hasAccess: hasStaff} = useFeature('staff_management');
   const [expiringStudents, setExpiringStudents] = React.useState<Student[]>([]);
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -57,15 +65,32 @@ const AdminDashboardScreen: React.FC = () => {
   useEffect(() => {
     if (!gym) return;
     refreshIfStale(gym.id);
+    fetchSubscription(gym.id);
     loadExpiringStudents();
-  }, [gym, refreshIfStale, loadExpiringStudents]);
+  }, [gym, refreshIfStale, fetchSubscription, loadExpiringStudents]);
 
   const onRefresh = async () => {
     if (!gym) return;
     setRefreshing(true);
-    await Promise.all([refresh(gym.id), loadExpiringStudents()]);
+    await Promise.all([refresh(gym.id), loadExpiringStudents(), fetchSubscription(gym.id)]);
     setRefreshing(false);
   };
+
+  const memberLimit = getLimitStatus('members', stats?.active_students ?? 0);
+  const trainerLimit = getLimitStatus('trainers', stats?.trainer_count ?? 0);
+  const staffLimit = getLimitStatus('staff', stats?.manager_count ?? 0);
+
+  const isTrial = subStatus === 'trial';
+  const showUpgradeBanner =
+    memberLimit.isNearLimit || trainerLimit.isNearLimit || staffLimit.isNearLimit;
+
+  function handleUpgradeNav() {
+    navigation.navigate('FeatureLocked', {
+      featureName: 'Upgrade Plan',
+      featureIcon: 'rocket-launch',
+      requiredPlan: 'starter',
+    });
+  }
 
   const formatCurrency = (v: number) =>
     `₹${v.toLocaleString('en-IN', {maximumFractionDigits: 0})}`;
@@ -196,6 +221,28 @@ const AdminDashboardScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Trial / Upgrade banners */}
+      {isTrial && (
+        <TrialBanner
+          daysLeft={trialDaysLeft}
+          expiryDate={trialEndsAt}
+          onUpgrade={handleUpgradeNav}
+          isDark={isDark}
+        />
+      )}
+      {showUpgradeBanner && (
+        <UpgradeBanner
+          memberCount={stats?.active_students ?? 0}
+          memberLimit={plan.limits.members}
+          trainerCount={stats?.trainer_count ?? 0}
+          trainerLimit={plan.limits.trainers}
+          staffCount={stats?.manager_count ?? 0}
+          staffLimit={plan.limits.staff}
+          onUpgrade={handleUpgradeNav}
+          isDark={isDark}
+        />
+      )}
+
       {/* Stat Cards */}
       <Text style={[styles.sectionTitle, {color: textColor}]}>Overview</Text>
       <View style={styles.statsGrid}>
@@ -304,31 +351,40 @@ const AdminDashboardScreen: React.FC = () => {
       <View style={styles.quickActionsGrid}>
         {(
         [
-          {icon: 'account-plus', label: 'Add Student', route: 'AddStudent' as const, color: COLORS.primary},
-          {icon: 'account-clock', label: 'Verifications', route: 'VerificationList' as const, color: COLORS.warning},
-          {icon: 'cash-plus', label: 'Add Expense', route: 'AddExpense' as const, color: COLORS.error},
-          {icon: 'currency-inr', label: 'Pay Salary', route: 'AddSalary' as const, color: COLORS.success},
-          {icon: 'package-variant', label: 'Packages', route: 'PackageList' as const, color: COLORS.info},
-          {icon: 'chart-bar', label: 'Reports', route: 'Reports' as const, color: COLORS.secondary},
-          {icon: 'account-group', label: 'Staff', route: 'UserManagement' as const, color: COLORS.trainerColor},
-          {icon: 'cog', label: 'Settings', route: 'GymSettings' as const, color: COLORS.textSecondary},
+          {icon: 'account-plus', label: 'Add Student', route: 'AddStudent' as const, color: COLORS.primary, locked: false},
+          {icon: 'account-clock', label: 'Verifications', route: 'VerificationList' as const, color: COLORS.warning, locked: false},
+          {icon: 'cash-plus', label: 'Add Expense', route: 'AddExpense' as const, color: COLORS.error, locked: false},
+          {icon: 'currency-inr', label: 'Pay Salary', route: 'AddSalary' as const, color: COLORS.success, locked: false},
+          {icon: 'package-variant', label: 'Packages', route: 'PackageList' as const, color: COLORS.info, locked: false},
+          {icon: 'chart-bar', label: 'Reports', route: 'Reports' as const, color: COLORS.secondary, locked: !hasReports},
+          {icon: 'account-group', label: 'Staff', route: 'UserManagement' as const, color: COLORS.trainerColor, locked: !hasStaff},
+          {icon: 'cog', label: 'Settings', route: 'GymSettings' as const, color: COLORS.textSecondary, locked: false},
         ] as const
       ).map(item => (
           <TouchableOpacity
             key={item.route}
             style={[styles.quickAction, {backgroundColor: cardBg}]}
-            onPress={() => navigation.navigate(item.route)}>
-            <View
-              style={[styles.quickActionIcon, {backgroundColor: item.color + '20'}]}>
-              <MaterialCommunityIcons
-                name={item.icon}
-                size={24}
-                color={item.color}
-              />
+            onPress={() => {
+              if (item.locked) {
+                const featureKey = item.route === 'Reports' ? 'basic_reports' : 'staff_management';
+                navigation.navigate('FeatureLocked', {
+                  featureName: item.label,
+                  featureIcon: item.icon,
+                  requiredPlan: item.route === 'Reports' ? 'starter' : 'starter',
+                });
+                return;
+              }
+              navigation.navigate(item.route);
+            }}>
+            <View style={[styles.quickActionIcon, {backgroundColor: item.color + '20'}]}>
+              <MaterialCommunityIcons name={item.icon} size={24} color={item.color} />
+              {item.locked && (
+                <View style={styles.lockOverlay}>
+                  <MaterialCommunityIcons name="lock" size={10} color="#FFF" />
+                </View>
+              )}
             </View>
-            <Text
-              style={[styles.quickActionLabel, {color: textColor}]}
-              numberOfLines={1}>
+            <Text style={[styles.quickActionLabel, {color: textColor}]} numberOfLines={1}>
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -486,6 +542,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
+    position: 'relative',
+  },
+  lockOverlay: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.textSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quickActionLabel: {fontSize: 10, fontWeight: '600', textAlign: 'center'},
   errorCenter: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl},

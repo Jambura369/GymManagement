@@ -8,6 +8,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
+import {useFeature} from '../../hooks/useFeature';
 import {COLORS, SPACING, BORDER_RADIUS, ROLE_COLORS} from '../../constants';
 import {RootStackParamList, User} from '../../types';
 import {fetchUsers, toggleUserActive} from '../../services/userService';
@@ -23,8 +24,20 @@ const UserManagementScreen: React.FC = () => {
   const {gym, user: currentUser} = useAuthStore();
   const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
+  const {hasAccess} = useFeature('staff_management');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!hasAccess) {
+      navigation.replace('FeatureLocked', {
+        featureName: 'Staff Management',
+        featureIcon: 'account-group',
+        requiredPlan: 'starter',
+        description: 'Manage trainers and staff members with the Starter plan.',
+      });
+    }
+  }, [hasAccess, navigation]);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
@@ -89,6 +102,8 @@ const UserManagementScreen: React.FC = () => {
       </Card.Content>
     </Card>
   );
+
+  if (!hasAccess) return null;
 
   return (
     <View style={[styles.container, {backgroundColor: bgColor}]}>

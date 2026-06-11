@@ -7,7 +7,7 @@
     "noImplicitThis": true,
     "alwaysStrict": true,
     "skipLibCheck": true,
-    "types": ["react-native"],
+    "types": ["react-native", "node"],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,

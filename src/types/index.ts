@@ -29,6 +29,60 @@ export type NotificationTarget = 'Admin' | 'Manager' | 'Trainer' | 'All';
 
 export type SalaryPaymentType = 'Cash' | 'Bank Transfer' | 'UPI';
 
+// ============================================================
+// SUBSCRIPTION & BILLING TYPES
+// ============================================================
+
+export type GymStatus = 'trial' | 'active' | 'expired' | 'cancelled';
+
+export type PlanTier = 'free_trial' | 'starter' | 'professional' | 'enterprise';
+
+export type FeatureKey =
+  | 'attendance'
+  | 'membership_management'
+  | 'fee_collection'
+  | 'expense_tracking'
+  | 'basic_dashboard'
+  | 'staff_management'
+  | 'trainer_management'
+  | 'basic_reports'
+  | 'advanced_reports'
+  | 'renewal_reminders'
+  | 'whatsapp_reminders'
+  | 'qr_attendance'
+  | 'workout_plans'
+  | 'diet_plans'
+  | 'progress_tracking'
+  | 'transformation_gallery'
+  | 'lead_management'
+  | 'custom_branding'
+  | 'white_label'
+  | 'custom_domain'
+  | 'multi_branch'
+  | 'franchise_dashboard'
+  | 'api_access'
+  | 'ai_assistant'
+  | 'ai_renewal_prediction'
+  | 'priority_support';
+
+export interface PlanLimits {
+  members: number;   // -1 = unlimited
+  trainers: number;
+  branches: number;
+  staff: number;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  tier: PlanTier;
+  monthly_price: number;
+  annual_price: number;
+  trial_days: number;
+  features: Record<FeatureKey, boolean>;
+  limits: PlanLimits;
+}
+
 // ---- Gym ----
 
 export interface Gym {
@@ -42,6 +96,12 @@ export interface Gym {
   payment_qr: string | null;
   is_active: boolean;
   subscription_plan: string;
+  // Subscription fields
+  plan_id?: string | null;
+  subscription_status?: GymStatus;
+  trial_started_at?: string | null;
+  trial_ends_at?: string | null;
+  subscription_expires_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -377,6 +437,12 @@ export type RootStackParamList = {
   AddUser: undefined;
   Profile: undefined;
   PaymentQR: undefined;
+  FeatureLocked: {
+    featureName: string;
+    featureIcon: string;
+    requiredPlan: PlanTier;
+    description?: string;
+  };
 };
 
 export type TabParamList = {

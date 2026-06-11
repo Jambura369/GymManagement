@@ -40,6 +40,7 @@ import AddSalaryScreen from '../screens/shared/AddSalaryScreen';
 import EditSalaryScreen from '../screens/shared/EditSalaryScreen';
 import ExpiryListScreen from '../screens/shared/ExpiryListScreen';
 import PaymentQRScreen from '../screens/shared/PaymentQRScreen';
+import FeatureLockedScreen from '../screens/shared/FeatureLockedScreen';
 
 import {RootStackParamList} from '../types';
 
@@ -128,6 +129,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="EditSalary" component={EditSalaryScreen} />
             <Stack.Screen name="ExpiryList" component={ExpiryListScreen} />
             <Stack.Screen name="PaymentQR" component={PaymentQRScreen} />
+            <Stack.Screen name="FeatureLocked" component={FeatureLockedScreen} />
           </>
         )}
       </Stack.Navigator>
