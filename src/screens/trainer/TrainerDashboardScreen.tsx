@@ -20,7 +20,7 @@ import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
 import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
 import {RootStackParamList, Student} from '../../types';
-import {fetchStudents, getExpiryAlerts} from '../../services/studentService';
+import {fetchStudents, getExpiryAlerts, syncExpiredMemberships} from '../../services/studentService';
 import StatCard from '../../components/common/StatCard';
 import {formatExpiryLabel} from '../../utils/dateUtils';
 
@@ -43,6 +43,7 @@ const TrainerDashboardScreen: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!gym || !user) return;
+    syncExpiredMemberships(gym.id); // fire-and-forget: keeps is_active accurate
     const [studentsRes, pendingRes, alertsRes] = await Promise.all([
       fetchStudents(gym.id, {trainer_id: user.id}, 1, 1),
       fetchStudents(gym.id, {trainer_id: user.id, verification_status: 'Pending'}, 1, 50),
@@ -307,6 +308,7 @@ const TrainerDashboardScreen: React.FC = () => {
       <View style={styles.qaGrid}>
         {[
           {icon: 'account-plus', label: 'Add Student', route: 'AddStudent', color: COLORS.primary},
+          {icon: 'calendar-check', label: 'Attendance', route: 'Attendance', color: COLORS.success},
           {icon: 'account-group', label: 'My Students', route: 'Students', color: COLORS.trainerColor},
           {icon: 'bell-outline', label: 'Notifications', route: 'Notifications', color: COLORS.info},
           {icon: 'account', label: 'Profile', route: 'Profile', color: COLORS.success},

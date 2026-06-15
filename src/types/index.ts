@@ -437,6 +437,8 @@ export type RootStackParamList = {
   AddUser: undefined;
   Profile: undefined;
   PaymentQR: undefined;
+  Attendance: undefined;
+  AttendanceHistory: {studentId: string; studentName: string};
   FeatureLocked: {
     featureName: string;
     featureIcon: string;

@@ -189,9 +189,13 @@ const ExpiryListScreen: React.FC = () => {
               <MaterialCommunityIcons name="phone" size={17} color={COLORS.success} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, {backgroundColor: COLORS.primary + '20'}]}
+              style={[
+                styles.renewBtn,
+                {backgroundColor: isExpired ? COLORS.error : COLORS.warning},
+              ]}
               onPress={() => navigation.navigate('RenewStudent', {studentId: item.id})}>
-              <MaterialCommunityIcons name="refresh" size={17} color={COLORS.primary} />
+              <MaterialCommunityIcons name="autorenew" size={13} color="#FFF" />
+              <Text style={styles.renewBtnText}>Renew</Text>
             </TouchableOpacity>
             {user?.role !== 'Trainer' && (
               toggling === item.id ? (
@@ -358,6 +362,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  renewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  renewBtnText: {color: '#FFF', fontSize: 11, fontWeight: '700'},
   switch: {transform: [{scaleX: 0.8}, {scaleY: 0.8}]},
   toggleLoader: {width: 34, height: 34},
   center: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl},

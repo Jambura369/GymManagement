@@ -17,6 +17,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
 import {useDashboardStore} from '../../store/dashboardStore';
+import {syncExpiredMemberships} from '../../services/studentService';
+import {checkAndSendExpiryNotifications} from '../../services/notificationService';
 import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
 import {RootStackParamList} from '../../types';
 import StatCard from '../../components/common/StatCard';
@@ -37,7 +39,10 @@ const ManagerDashboardScreen: React.FC = () => {
   const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
   const load = useCallback(async () => {
-    if (gym) await refresh(gym.id);
+    if (!gym) return;
+    syncExpiredMemberships(gym.id); // fire-and-forget: keeps is_active accurate
+    checkAndSendExpiryNotifications(gym.id); // once-per-day expiry alert push
+    await refresh(gym.id);
   }, [gym]);
 
   useEffect(() => {
@@ -154,6 +159,7 @@ const ManagerDashboardScreen: React.FC = () => {
       <View style={styles.quickActionsGrid}>
         {[
           {icon: 'account-plus', label: 'Add Student', route: 'AddStudent', color: COLORS.primary},
+          {icon: 'calendar-check', label: 'Attendance', route: 'Attendance', color: COLORS.success},
           {icon: 'account-clock', label: 'Verifications', route: 'VerificationList', color: COLORS.warning},
           {icon: 'cash-plus', label: 'Add Expense', route: 'AddExpense', color: COLORS.error},
           {icon: 'currency-inr', label: 'Pay Salary', route: 'AddSalary', color: COLORS.success},

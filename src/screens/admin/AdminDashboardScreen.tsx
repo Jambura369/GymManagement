@@ -30,7 +30,8 @@ import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 import GymblixLogo from '../../components/common/GymblixLogo';
 import TrialBanner from '../../components/common/TrialBanner';
 import UpgradeBanner from '../../components/common/UpgradeBanner';
-import {getExpiryAlerts} from '../../services/studentService';
+import {getExpiryAlerts, syncExpiredMemberships} from '../../services/studentService';
+import {checkAndSendExpiryNotifications} from '../../services/notificationService';
 import {formatExpiryLabel} from '../../utils/dateUtils';
 
 type Nav = CompositeNavigationProp<
@@ -61,9 +62,11 @@ const AdminDashboardScreen: React.FC = () => {
     if (result.data) setExpiringStudents(result.data);
   }, [gym]);
 
-  // On mount: use cache if fresh, otherwise fetch
+  // On mount: sync expired members in DB, then load stats
   useEffect(() => {
     if (!gym) return;
+    syncExpiredMemberships(gym.id); // fire-and-forget: keeps is_active accurate
+    checkAndSendExpiryNotifications(gym.id); // once-per-day expiry alert push
     refreshIfStale(gym.id);
     fetchSubscription(gym.id);
     loadExpiringStudents();
@@ -352,6 +355,7 @@ const AdminDashboardScreen: React.FC = () => {
         {(
         [
           {icon: 'account-plus', label: 'Add Student', route: 'AddStudent' as const, color: COLORS.primary, locked: false},
+          {icon: 'calendar-check', label: 'Attendance', route: 'Attendance' as const, color: COLORS.success, locked: false},
           {icon: 'account-clock', label: 'Verifications', route: 'VerificationList' as const, color: COLORS.warning, locked: false},
           {icon: 'cash-plus', label: 'Add Expense', route: 'AddExpense' as const, color: COLORS.error, locked: false},
           {icon: 'currency-inr', label: 'Pay Salary', route: 'AddSalary' as const, color: COLORS.success, locked: false},

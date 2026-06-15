@@ -39,6 +39,8 @@ import EditExpenseScreen from '../screens/shared/EditExpenseScreen';
 import AddSalaryScreen from '../screens/shared/AddSalaryScreen';
 import EditSalaryScreen from '../screens/shared/EditSalaryScreen';
 import ExpiryListScreen from '../screens/shared/ExpiryListScreen';
+import AttendanceScreen from '../screens/shared/AttendanceScreen';
+import AttendanceHistoryScreen from '../screens/shared/AttendanceHistoryScreen';
 import PaymentQRScreen from '../screens/shared/PaymentQRScreen';
 import FeatureLockedScreen from '../screens/shared/FeatureLockedScreen';
 
@@ -128,6 +130,8 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="AddSalary" component={AddSalaryScreen} />
             <Stack.Screen name="EditSalary" component={EditSalaryScreen} />
             <Stack.Screen name="ExpiryList" component={ExpiryListScreen} />
+            <Stack.Screen name="Attendance" component={AttendanceScreen} />
+            <Stack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
             <Stack.Screen name="PaymentQR" component={PaymentQRScreen} />
             <Stack.Screen name="FeatureLocked" component={FeatureLockedScreen} />
           </>
