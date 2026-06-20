@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AuthUser, Gym, User} from '../types';
 import {getCurrentSession, logout as logoutService, updateFcmToken} from '../services/authService';
 import {getFCMToken} from '../services/notificationService';
+import {useSubscriptionStore} from './subscriptionStore';
 
 interface AuthState {
   user: User | null;
@@ -32,8 +33,8 @@ export const useAuthStore = create<AuthState>()(
       error: null,
 
       setAuth: (user, gym) => {
+        useSubscriptionStore.getState().reset();
         set({user, gym, isAuthenticated: true, error: null});
-        // Update FCM token on login
         getFCMToken().then(token => {
           if (token) {
             updateFcmToken(user.id, token);
@@ -55,6 +56,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         await logoutService();
+        useSubscriptionStore.getState().reset();
         set({user: null, gym: null, isAuthenticated: false, error: null});
       },
 

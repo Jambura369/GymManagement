@@ -29,6 +29,65 @@ export type NotificationTarget = 'Admin' | 'Manager' | 'Trainer' | 'All';
 
 export type SalaryPaymentType = 'Cash' | 'Bank Transfer' | 'UPI';
 
+export type AuthMethod = 'password' | 'email_otp';
+
+// ============================================================
+// SUBSCRIPTION & BILLING TYPES
+// ============================================================
+
+export type GymStatus = 'trial' | 'active' | 'expired' | 'cancelled';
+
+export type PlanTier = 'free_trial' | 'starter' | 'professional' | 'enterprise';
+
+export type FeatureKey =
+  | 'attendance'
+  | 'membership_management'
+  | 'fee_collection'
+  | 'expense_tracking'
+  | 'basic_dashboard'
+  | 'staff_management'
+  | 'trainer_management'
+  | 'basic_reports'
+  | 'advanced_reports'
+  | 'renewal_reminders'
+  | 'whatsapp_reminders'
+  | 'qr_attendance'
+  | 'workout_plans'
+  | 'diet_plans'
+  | 'progress_tracking'
+  | 'transformation_gallery'
+  | 'lead_management'
+  | 'custom_branding'
+  | 'white_label'
+  | 'custom_domain'
+  | 'multi_branch'
+  | 'franchise_dashboard'
+  | 'api_access'
+  | 'ai_assistant'
+  | 'ai_renewal_prediction'
+  | 'priority_support'
+  | 'invoice_generation'
+  | 'payment_history'
+  | 'supplement_stock';
+
+export interface PlanLimits {
+  members: number;   // -1 = unlimited
+  trainers: number;
+  branches: number;
+  staff: number;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  tier: PlanTier;
+  monthly_price: number;
+  annual_price: number;
+  trial_days: number;
+  features: Record<FeatureKey, boolean>;
+  limits: PlanLimits;
+}
+
 // ---- Gym ----
 
 export interface Gym {
@@ -42,6 +101,13 @@ export interface Gym {
   payment_qr: string | null;
   is_active: boolean;
   subscription_plan: string;
+  auth_method: AuthMethod;
+  // Subscription fields
+  plan_id?: string | null;
+  subscription_status?: GymStatus;
+  trial_started_at?: string | null;
+  trial_ends_at?: string | null;
+  subscription_expires_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -159,6 +225,45 @@ export interface TrainerSalary {
   // Joined
   trainer?: User;
   payer?: User;
+}
+
+// ---- Supplement Stock ----
+
+export type SupplementTxnType = 'Add' | 'Sell';
+
+export interface Supplement {
+  id: string;
+  gym_id: string;
+  name: string;
+  category: string | null;
+  unit: string;
+  cost_price: number | null;
+  selling_price: number;
+  quantity: number;
+  low_stock_threshold: number;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplementTransaction {
+  id: string;
+  gym_id: string;
+  supplement_id: string;
+  type: SupplementTxnType;
+  quantity: number;
+  price_per_unit: number;
+  total_amount: number;
+  student_id: string | null;
+  notes: string | null;
+  recorded_by: string | null;
+  transaction_date: string;
+  created_at: string;
+  // Joined
+  supplement?: Supplement;
+  student?: Student;
+  recorder?: User;
 }
 
 // ---- Verification Request ----
@@ -324,6 +429,26 @@ export interface RenewStudentForm {
   notes?: string;
 }
 
+export interface AddSupplementForm {
+  name: string;
+  category?: string;
+  unit?: string;
+  cost_price?: number;
+  selling_price: number;
+  quantity: number;
+  low_stock_threshold?: number;
+  description?: string;
+}
+
+export interface StockTransactionForm {
+  type: SupplementTxnType;
+  quantity: number;
+  price_per_unit: number;
+  student_id?: string;
+  notes?: string;
+  transaction_date: string;
+}
+
 // ---- Filter Types ----
 
 export interface StudentFilter {
@@ -347,6 +472,10 @@ export interface PaymentFilter {
   payment_method?: PaymentMethod | 'All';
   date_from?: string;
   date_to?: string;
+}
+
+export interface SupplementFilter {
+  search?: string;
 }
 
 // ---- Navigation Types ----
@@ -377,6 +506,21 @@ export type RootStackParamList = {
   AddUser: undefined;
   Profile: undefined;
   PaymentQR: undefined;
+  Attendance: undefined;
+  AttendanceQR: undefined;
+  AttendanceHistory: {studentId: string; studentName: string};
+  StudentPaymentHistory: {studentId: string; studentName: string};
+  TrainerPaymentHistory: {trainerId: string; trainerName: string};
+  SupplementList: undefined;
+  AddSupplement: undefined;
+  EditSupplement: {supplementId: string};
+  StockTransaction: {supplementId: string; mode: 'add' | 'sell'};
+  FeatureLocked: {
+    featureName: string;
+    featureIcon: string;
+    requiredPlan: PlanTier;
+    description?: string;
+  };
 };
 
 export type TabParamList = {

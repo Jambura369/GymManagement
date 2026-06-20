@@ -16,6 +16,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
+import {useFeature} from '../../hooks/useFeature';
 import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
 import {RootStackParamList} from '../../types';
 
@@ -26,6 +27,20 @@ const PaymentQRScreen: React.FC = () => {
   const {gym} = useAuthStore();
   const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
+  const {hasAccess} = useFeature('qr_attendance');
+
+  React.useEffect(() => {
+    if (!hasAccess) {
+      navigation.replace('FeatureLocked', {
+        featureName: 'Payment QR',
+        featureIcon: 'qrcode',
+        requiredPlan: 'professional',
+        description: 'QR-based payment collection requires the Professional plan.',
+      });
+    }
+  }, [hasAccess, navigation]);
+
+  if (!hasAccess) return null;
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;

@@ -16,6 +16,7 @@ import dayjs from 'dayjs';
 
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
+import {useFeature} from '../../hooks/useFeature';
 import {COLORS, SPACING, BORDER_RADIUS, EXPENSE_CATEGORY_COLORS} from '../../constants';
 import {getMonthlyRevenue, getRevenueByDateRange} from '../../services/dashboardService';
 import {getExpenseSummary} from '../../services/expenseService';
@@ -30,9 +31,23 @@ const REPORT_TABS = ['Revenue', 'Expenses', 'Profit'];
 const DATE_RANGES = ['Today', 'This Month', 'Last 3 Months', 'Last 6 Months', 'This Year', 'Custom'];
 
 const ReportsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const {gym} = useAuthStore();
   const {isDark} = useThemeStore();
+  const {hasAccess} = useFeature('basic_reports');
+
+  useEffect(() => {
+    if (!hasAccess) {
+      navigation.replace('FeatureLocked', {
+        featureName: 'Reports & Analytics',
+        featureIcon: 'chart-bar',
+        requiredPlan: 'starter',
+        description: 'Detailed reports and analytics are available from the Starter plan.',
+      });
+    }
+  }, [hasAccess, navigation]);
+
+  if (!hasAccess) return null;
 
   const [activeTab, setActiveTab] = useState('Revenue');
   const [dateRange, setDateRange] = useState('Last 6 Months');
