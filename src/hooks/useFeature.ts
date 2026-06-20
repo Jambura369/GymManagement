@@ -1,4 +1,4 @@
-import {useSubscriptionStore, FEATURE_REQUIRED_PLAN, PLAN_DISPLAY_NAMES} from '../store/subscriptionStore';
+import {useSubscriptionStore, PLAN_DISPLAY_NAMES} from '../store/subscriptionStore';
 import {FeatureKey, PlanTier} from '../types';
 
 interface FeatureAccess {
@@ -17,8 +17,9 @@ interface FeatureAccess {
  */
 export function useFeature(key: FeatureKey): FeatureAccess {
   const checkFeature = useSubscriptionStore(s => s.checkFeature);
+  const getRequiredPlan = useSubscriptionStore(s => s.getRequiredPlan);
   const hasAccess = checkFeature(key);
-  const requiredPlan = FEATURE_REQUIRED_PLAN[key] ?? 'starter';
+  const requiredPlan = getRequiredPlan(key);
   return {
     hasAccess,
     requiredPlan,

@@ -4,41 +4,60 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {supabase} from '../supabase/client';
 import {FeatureKey, PlanLimits, PlanTier, SubscriptionPlan} from '../types';
 
-// ── Feature → minimum required plan ──────────────────────────────────────────
-export const FEATURE_REQUIRED_PLAN: Record<FeatureKey, PlanTier> = {
-  attendance: 'free_trial',
-  membership_management: 'free_trial',
-  fee_collection: 'free_trial',
-  expense_tracking: 'free_trial',
-  basic_dashboard: 'free_trial',
-  staff_management: 'starter',
-  basic_reports: 'starter',
-  renewal_reminders: 'starter',
-  trainer_management: 'professional',
-  advanced_reports: 'professional',
-  whatsapp_reminders: 'professional',
-  qr_attendance: 'professional',
-  workout_plans: 'professional',
-  diet_plans: 'professional',
-  progress_tracking: 'professional',
-  transformation_gallery: 'professional',
-  lead_management: 'professional',
-  custom_branding: 'professional',
-  multi_branch: 'enterprise',
-  franchise_dashboard: 'enterprise',
-  white_label: 'enterprise',
-  custom_domain: 'enterprise',
-  api_access: 'enterprise',
-  ai_assistant: 'enterprise',
-  ai_renewal_prediction: 'enterprise',
-  priority_support: 'enterprise',
-};
+// Fallback ordering used only when `allPlans` hasn't loaded yet (offline /
+// first launch before fetchAllPlans resolves) — getRequiredPlan() below
+// normally derives the answer live from the DB-backed `allPlans` instead.
+const OFFLINE_FALLBACK_TIER: PlanTier = 'enterprise';
 
 export const PLAN_DISPLAY_NAMES: Record<PlanTier, string> = {
   free_trial: 'Free Trial',
   starter: 'Starter',
   professional: 'Professional',
   enterprise: 'Ultra Pro',
+};
+
+// All Professional-tier features enabled (used when is_pro_override = true in gyms table)
+const PRO_OVERRIDE_FEATURES: Record<FeatureKey, boolean> = {
+  attendance: true,
+  membership_management: true,
+  fee_collection: true,
+  expense_tracking: true,
+  basic_dashboard: true,
+  staff_management: true,
+  basic_reports: true,
+  renewal_reminders: true,
+  trainer_management: true,
+  advanced_reports: true,
+  whatsapp_reminders: true,
+  qr_attendance: true,
+  workout_plans: true,
+  diet_plans: true,
+  progress_tracking: true,
+  transformation_gallery: true,
+  lead_management: true,
+  custom_branding: true,
+  multi_branch: false,
+  franchise_dashboard: false,
+  white_label: false,
+  custom_domain: false,
+  api_access: false,
+  ai_assistant: false,
+  ai_renewal_prediction: false,
+  priority_support: false,
+  invoice_generation: true,
+  payment_history: true,
+  supplement_stock: true,
+};
+
+const PRO_OVERRIDE_PLAN: SubscriptionPlan = {
+  id: 'pro_override',
+  name: 'Professional',
+  tier: 'professional',
+  monthly_price: 0,
+  annual_price: 0,
+  trial_days: 0,
+  features: PRO_OVERRIDE_FEATURES,
+  limits: {members: -1, trainers: -1, branches: 1, staff: -1},
 };
 
 // Default features for free trial (safe fallback when offline / no plan data)
@@ -69,6 +88,9 @@ const FREE_TRIAL_FEATURES: Record<FeatureKey, boolean> = {
   ai_assistant: false,
   ai_renewal_prediction: false,
   priority_support: false,
+  invoice_generation: false,
+  payment_history: false,
+  supplement_stock: false,
 };
 
 const FREE_TRIAL_PLAN: SubscriptionPlan = {
@@ -188,6 +210,9 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
       fetchSubscription: async (gymId: string) => {
         const {lastFetched} = get();
+        // Kick off allPlans in parallel — getRequiredPlan() needs it to
+        // compute the right tier for FeatureLocked screens/banners.
+        get().fetchAllPlans();
         if (lastFetched && Date.now() - lastFetched < CACHE_TTL) return;
 
         set({isLoading: true});
@@ -195,12 +220,26 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           // Fetch gym subscription state
           const {data: gym, error: gymErr} = await supabase
             .from('gyms')
-            .select('plan_id, subscription_status, trial_ends_at, subscription_expires_at')
+            .select('plan_id, subscription_status, trial_ends_at, subscription_expires_at, is_pro_override')
             .eq('id', gymId)
             .single();
 
           if (gymErr || !gym) {
             set({isLoading: false});
+            return;
+          }
+
+          // Test override: set is_pro_override = true in the gyms table to unlock Professional
+          if (gym.is_pro_override) {
+            set({
+              plan: PRO_OVERRIDE_PLAN,
+              status: 'active',
+              trialEndsAt: null,
+              trialDaysLeft: 0,
+              subscriptionExpiresAt: null,
+              isLoading: false,
+              lastFetched: Date.now(),
+            });
             return;
           }
 
@@ -262,7 +301,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         return !!(plan.features?.[key]);
       },
 
-      getRequiredPlan: (key: FeatureKey) => FEATURE_REQUIRED_PLAN[key] ?? 'starter',
+      getRequiredPlan: (key: FeatureKey) => {
+        const {allPlans} = get();
+        const cheapest = [...allPlans]
+          .sort((a, b) => a.monthly_price - b.monthly_price)
+          .find(p => p.features?.[key]);
+        return cheapest?.tier ?? OFFLINE_FALLBACK_TIER;
+      },
 
       getLimitStatus: (resource, current) => {
         const {plan} = get();
@@ -306,15 +351,17 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         }),
     }),
     {
-      name: 'gym-subscription-storage',
+      name: 'gym-subscription-storage-v2',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
       partialize: state => ({
         plan: state.plan,
         status: state.status,
         trialEndsAt: state.trialEndsAt,
         trialDaysLeft: state.trialDaysLeft,
         subscriptionExpiresAt: state.subscriptionExpiresAt,
-        lastFetched: state.lastFetched,
+        // lastFetched intentionally not persisted so the subscription is always
+        // re-fetched fresh on each app launch / login
       }),
     },
   ),

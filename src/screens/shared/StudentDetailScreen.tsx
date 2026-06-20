@@ -199,6 +199,17 @@ const StudentDetailScreen: React.FC = () => {
                 <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
                 <Text style={[styles.actionText, {color: '#25D366'}]}>WhatsApp</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, {backgroundColor: COLORS.primary + '20'}]}
+                onPress={() =>
+                  navigation.navigate('StudentPaymentHistory', {
+                    studentId: student.id,
+                    studentName: student.name,
+                  })
+                }>
+                <MaterialCommunityIcons name="receipt-text-outline" size={20} color={COLORS.primary} />
+                <Text style={[styles.actionText, {color: COLORS.primary}]}>History</Text>
+              </TouchableOpacity>
             </View>
           </Card.Content>
         </Card>

@@ -41,8 +41,15 @@ import EditSalaryScreen from '../screens/shared/EditSalaryScreen';
 import ExpiryListScreen from '../screens/shared/ExpiryListScreen';
 import AttendanceScreen from '../screens/shared/AttendanceScreen';
 import AttendanceHistoryScreen from '../screens/shared/AttendanceHistoryScreen';
+import AttendanceQRScreen from '../screens/shared/AttendanceQRScreen';
 import PaymentQRScreen from '../screens/shared/PaymentQRScreen';
 import FeatureLockedScreen from '../screens/shared/FeatureLockedScreen';
+import StudentPaymentHistoryScreen from '../screens/shared/StudentPaymentHistoryScreen';
+import TrainerPaymentHistoryScreen from '../screens/shared/TrainerPaymentHistoryScreen';
+import SupplementListScreen from '../screens/shared/SupplementListScreen';
+import AddSupplementScreen from '../screens/shared/AddSupplementScreen';
+import EditSupplementScreen from '../screens/shared/EditSupplementScreen';
+import StockTransactionScreen from '../screens/shared/StockTransactionScreen';
 
 import {RootStackParamList} from '../types';
 
@@ -132,7 +139,14 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="ExpiryList" component={ExpiryListScreen} />
             <Stack.Screen name="Attendance" component={AttendanceScreen} />
             <Stack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
+            <Stack.Screen name="AttendanceQR" component={AttendanceQRScreen} />
             <Stack.Screen name="PaymentQR" component={PaymentQRScreen} />
+            <Stack.Screen name="StudentPaymentHistory" component={StudentPaymentHistoryScreen} />
+            <Stack.Screen name="TrainerPaymentHistory" component={TrainerPaymentHistoryScreen} />
+            <Stack.Screen name="SupplementList" component={SupplementListScreen} />
+            <Stack.Screen name="AddSupplement" component={AddSupplementScreen} />
+            <Stack.Screen name="EditSupplement" component={EditSupplementScreen} />
+            <Stack.Screen name="StockTransaction" component={StockTransactionScreen} />
             <Stack.Screen name="FeatureLocked" component={FeatureLockedScreen} />
           </>
         )}

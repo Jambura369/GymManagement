@@ -283,9 +283,16 @@ const AttendanceScreen: React.FC = () => {
             {dayjs().format('ddd, DD MMM YYYY')}
           </Text>
         </View>
-        <View style={[styles.countBadge, {backgroundColor: COLORS.success + '20'}]}>
-          <MaterialCommunityIcons name="account-check" size={14} color={COLORS.success} />
-          <Text style={[styles.countText, {color: COLORS.success}]}>{todayRecords.length}</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={[styles.qrBtn, {backgroundColor: COLORS.primary + '15'}]}
+            onPress={() => navigation.navigate('AttendanceQR')}>
+            <MaterialCommunityIcons name="qrcode-scan" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+          <View style={[styles.countBadge, {backgroundColor: COLORS.success + '20'}]}>
+            <MaterialCommunityIcons name="account-check" size={14} color={COLORS.success} />
+            <Text style={[styles.countText, {color: COLORS.success}]}>{todayRecords.length}</Text>
+          </View>
         </View>
       </View>
 
@@ -396,6 +403,8 @@ const styles = StyleSheet.create({
   headerTitle: {flex: 1},
   title: {fontSize: 18, fontWeight: '700'},
   subtitle: {fontSize: 12, marginTop: 1},
+  headerRight: {flexDirection: 'row', alignItems: 'center', gap: SPACING.xs},
+  qrBtn: {width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center'},
   countBadge: {flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12},
   countText: {fontSize: 13, fontWeight: '700'},
   tabRow: {

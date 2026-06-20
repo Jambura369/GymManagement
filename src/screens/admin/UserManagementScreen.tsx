@@ -77,7 +77,13 @@ const UserManagementScreen: React.FC = () => {
   };
 
   const renderUser = ({item}: {item: User}) => (
-    <Card style={[styles.card, {backgroundColor: cardBg}]}>
+    <Card
+      style={[styles.card, {backgroundColor: cardBg}]}
+      onPress={
+        item.role === 'Trainer'
+          ? () => navigation.navigate('TrainerPaymentHistory', {trainerId: item.id, trainerName: item.name})
+          : undefined
+      }>
       <Card.Content style={styles.cardContent}>
         <AvatarWithFallback
           uri={item.avatar}

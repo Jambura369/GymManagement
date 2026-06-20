@@ -1,5 +1,5 @@
 import {supabase} from '../supabase/client';
-import {ApiResponse, Gym, RegisterGymForm, User} from '../types';
+import {ApiResponse, AuthMethod, Gym, RegisterGymForm, User} from '../types';
 import {uploadImage} from './storageService';
 import {SUPABASE_BUCKETS} from '../constants';
 
@@ -8,6 +8,33 @@ const isNetworkError = (err: any): boolean =>
   err?.message?.toLowerCase().includes('fetch');
 
 const networkErrorMsg = 'No internet connection. Please check your network and try again.';
+
+// Shared by login(), getCurrentSession() and verifyLoginOtp() — fetches the
+// app-level user+gym profile for an already-authenticated Supabase auth user.
+const fetchUserAndGym = async (
+  authUserId: string,
+): Promise<ApiResponse<{user: User; gym: Gym}>> => {
+  const {data: userData, error: userError} = await supabase
+    .from('users')
+    .select('*, gym:gyms(*)')
+    .eq('auth_id', authUserId)
+    .single();
+
+  if (userError || !userData) {
+    return {data: null, error: userError?.message || 'User profile not found'};
+  }
+
+  const gym = userData.gym as unknown as Gym;
+  const user = {...userData} as unknown as User;
+  delete (user as any).gym;
+
+  if (!user.is_active) {
+    await supabase.auth.signOut();
+    return {data: null, error: 'Your account has been deactivated. Please contact your admin.'};
+  }
+
+  return {data: {user, gym}, error: null};
+};
 
 // ---- Register Gym (Owner Onboarding) ----
 export const registerGym = async (
@@ -108,27 +135,56 @@ export const login = async (
       return {data: null, error: authError?.message || 'Login failed'};
     }
 
-    // Fetch user + gym data
-    const {data: userData, error: userError} = await supabase
-      .from('users')
-      .select('*, gym:gyms(*)')
-      .eq('auth_id', authData.user.id)
-      .single();
+    return await fetchUserAndGym(authData.user.id);
+  } catch (err: any) {
+    return {data: null, error: isNetworkError(err) ? networkErrorMsg : (err.message || 'Unexpected error')};
+  }
+};
 
-    if (userError || !userData) {
-      return {data: null, error: userError?.message || 'User profile not found'};
+// ---- Email OTP Login ----
+
+// Looks up which login method the staff member's gym uses, *before* they're
+// authenticated. Always resolves to a valid method (defaults to 'password')
+// so the response never reveals whether the email exists.
+export const getGymAuthMethod = async (email: string): Promise<AuthMethod> => {
+  try {
+    const {data, error} = await supabase.rpc('get_gym_auth_method', {p_email: email});
+    if (error || !data) return 'password';
+    return data as AuthMethod;
+  } catch {
+    return 'password';
+  }
+};
+
+export const sendLoginOtp = async (email: string): Promise<ApiResponse<null>> => {
+  try {
+    const {error} = await supabase.auth.signInWithOtp({
+      email,
+      options: {shouldCreateUser: false},
+    });
+    if (error) return {data: null, error: error.message};
+    return {data: null, error: null};
+  } catch (err: any) {
+    return {data: null, error: isNetworkError(err) ? networkErrorMsg : err.message};
+  }
+};
+
+export const verifyLoginOtp = async (
+  email: string,
+  token: string,
+): Promise<ApiResponse<{user: User; gym: Gym}>> => {
+  try {
+    const {data: authData, error: authError} = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
+
+    if (authError || !authData.user) {
+      return {data: null, error: authError?.message || 'Invalid or expired code'};
     }
 
-    const gym = userData.gym as unknown as Gym;
-    const user = {...userData} as unknown as User;
-    delete (user as any).gym;
-
-    if (!user.is_active) {
-      await supabase.auth.signOut();
-      return {data: null, error: 'Your account has been deactivated. Please contact your admin.'};
-    }
-
-    return {data: {user, gym}, error: null};
+    return await fetchUserAndGym(authData.user.id);
   } catch (err: any) {
     return {data: null, error: isNetworkError(err) ? networkErrorMsg : (err.message || 'Unexpected error')};
   }
@@ -147,26 +203,7 @@ export const getCurrentSession = async (): Promise<ApiResponse<{user: User; gym:
       return {data: null, error: null};
     }
 
-    const {data: userData, error: userError} = await supabase
-      .from('users')
-      .select('*, gym:gyms(*)')
-      .eq('auth_id', sessionData.session.user.id)
-      .single();
-
-    if (userError || !userData) {
-      return {data: null, error: 'User profile not found'};
-    }
-
-    const gym = userData.gym as unknown as Gym;
-    const user = {...userData} as unknown as User;
-    delete (user as any).gym;
-
-    if (!user.is_active) {
-      await supabase.auth.signOut();
-      return {data: null, error: 'Your account has been deactivated. Please contact your admin.'};
-    }
-
-    return {data: {user, gym}, error: null};
+    return await fetchUserAndGym(sessionData.session.user.id);
   } catch (err: any) {
     return {data: null, error: isNetworkError(err) ? networkErrorMsg : err.message};
   }

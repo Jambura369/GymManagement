@@ -7,7 +7,9 @@ import {
   ScrollView,
   Linking,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import RazorpayCheckout from 'react-native-razorpay';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import LinearGradient from 'react-native-linear-gradient';
@@ -15,8 +17,11 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {FEATURE_LABELS} from '../../constants/features';
 import {useThemeStore} from '../../store/themeStore';
+import {useAuthStore} from '../../store/authStore';
 import {useSubscriptionStore, PLAN_DISPLAY_NAMES} from '../../store/subscriptionStore';
+import {createUpgradeOrder, confirmPayment, BillingCycle as ApiBillingCycle} from '../../services/subscriptionService';
 import {RootStackParamList, PlanTier, SubscriptionPlan, FeatureKey} from '../../types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -47,36 +52,6 @@ const TIER_TAG: Partial<Record<PlanTier, string>> = {
 
 const TIER_ORDER: PlanTier[] = ['free_trial', 'starter', 'professional', 'enterprise'];
 
-// Human-readable labels for every feature key
-const FEATURE_LABELS: Record<FeatureKey, string> = {
-  basic_dashboard:       'Basic dashboard & analytics',
-  attendance:            'Attendance tracking',
-  fee_collection:        'Fee collection',
-  expense_tracking:      'Expense tracking',
-  membership_management: 'Membership management',
-  staff_management:      'Staff management',
-  basic_reports:         'Basic reports & analytics',
-  renewal_reminders:     'Renewal reminders',
-  trainer_management:    'Trainer management',
-  qr_attendance:         'QR code attendance',
-  whatsapp_reminders:    'WhatsApp reminders',
-  workout_plans:         'Workout plans',
-  diet_plans:            'Diet & nutrition plans',
-  lead_management:       'Lead management',
-  custom_branding:       'Custom branding',
-  advanced_reports:      'Advanced reports & analytics',
-  progress_tracking:     'Progress tracking',
-  transformation_gallery:'Transformation gallery',
-  multi_branch:          'Multi-branch management',
-  franchise_dashboard:   'Franchise dashboard',
-  white_label:           'White label solution',
-  custom_domain:         'Custom domain',
-  api_access:            'API access',
-  ai_assistant:          'AI fitness assistant',
-  ai_renewal_prediction: 'AI renewal prediction',
-  priority_support:      'Priority support',
-};
-
 // Ordered list of feature keys for display (determines which show first)
 const FEATURE_DISPLAY_ORDER: FeatureKey[] = [
   'basic_dashboard', 'attendance', 'fee_collection', 'expense_tracking',
@@ -86,6 +61,7 @@ const FEATURE_DISPLAY_ORDER: FeatureKey[] = [
   'progress_tracking', 'transformation_gallery', 'multi_branch', 'franchise_dashboard',
   'white_label', 'custom_domain', 'api_access', 'ai_assistant',
   'ai_renewal_prediction', 'priority_support',
+  'invoice_generation', 'payment_history', 'supplement_stock',
 ];
 
 /** Returns features that are NEW in this plan vs the previous tier plan. */
@@ -147,6 +123,8 @@ function PlanCard({
   isCurrent,
   billing,
   isDark,
+  isProcessing,
+  disabled,
   onUpgrade,
 }: {
   plan: SubscriptionPlan;
@@ -155,7 +133,9 @@ function PlanCard({
   isCurrent: boolean;
   billing: BillingCycle;
   isDark: boolean;
-  onUpgrade: (tier: PlanTier) => void;
+  isProcessing: boolean;
+  disabled: boolean;
+  onUpgrade: (plan: SubscriptionPlan) => void;
 }) {
   const gradient = TIER_GRADIENT[plan.tier];
   const icon = TIER_ICON[plan.tier];
@@ -256,16 +236,26 @@ function PlanCard({
             <Text style={[styles.currentBtnText, {color: gradient[0]}]}>Your Current Plan</Text>
           </View>
         ) : (
-          <TouchableOpacity onPress={() => onUpgrade(plan.tier)} activeOpacity={0.82}>
+          <TouchableOpacity
+            onPress={() => onUpgrade(plan)}
+            activeOpacity={0.82}
+            disabled={disabled}
+            style={disabled && !isProcessing ? styles.upgradeBtnDisabled : undefined}>
             <LinearGradient
               colors={gradient}
               start={{x: 0, y: 0}}
               end={{x: 1, y: 0}}
               style={[styles.upgradeBtn, isRequired && styles.upgradeBtnLarge]}>
-              <Text style={styles.upgradeBtnText}>
-                {plan.monthly_price === 0 ? 'Start Free Trial' : `Upgrade to ${plan.name}`}
-              </Text>
-              <MaterialCommunityIcons name="arrow-right" size={16} color="#FFF" />
+              {isProcessing ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Text style={styles.upgradeBtnText}>
+                    {plan.monthly_price === 0 ? 'Start Free Trial' : `Upgrade to ${plan.name}`}
+                  </Text>
+                  <MaterialCommunityIcons name="arrow-right" size={16} color="#FFF" />
+                </>
+              )}
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -280,9 +270,11 @@ const FeatureLockedScreen: React.FC = () => {
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const {isDark} = useThemeStore();
-  const {plan: currentPlan, allPlans, allPlansLoading, fetchAllPlans} = useSubscriptionStore();
+  const {plan: currentPlan, allPlans, allPlansLoading, fetchAllPlans, fetchSubscription} = useSubscriptionStore();
+  const {user, gym} = useAuthStore();
 
   const [billing, setBilling] = useState<BillingCycle>('monthly');
+  const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
 
   const {featureName, featureIcon, requiredPlan, description} = route.params;
   const gradient = TIER_GRADIENT[requiredPlan];
@@ -304,9 +296,68 @@ const FeatureLockedScreen: React.FC = () => {
   const cardBg = isDark ? COLORS.cardDark : '#FFFFFF';
   const toggleActiveBg = isDark ? '#FFFFFF18' : '#F3F4F6';
 
-  function handleUpgrade(tier: PlanTier) {
-    const cycle = billing === 'annual' ? 'annual' : 'monthly';
-    Linking.openURL(`https://gymblix.com/gym/subscription?plan=${tier}&cycle=${cycle}`);
+  async function handleUpgrade(plan: SubscriptionPlan) {
+    // Free tier has no payment to take — fall back to the web flow until a
+    // dedicated trial-start call is wired up from this screen.
+    if (plan.monthly_price === 0) {
+      Linking.openURL(`https://gymblix.com/gym/subscription?plan=${plan.tier}&cycle=${billing}`);
+      return;
+    }
+
+    if (!gym?.id || processingPlanId) return;
+
+    const cycle: ApiBillingCycle = billing === 'annual' ? 'annual' : 'monthly';
+    setProcessingPlanId(plan.id);
+
+    try {
+      const {data: orderData, error: orderError} = await createUpgradeOrder(plan.id, cycle);
+      if (orderError || !orderData) {
+        Alert.alert('Could not start payment', orderError ?? 'Please try again.');
+        return;
+      }
+
+      const checkoutResult = await RazorpayCheckout.open({
+        key: orderData.key,
+        order_id: orderData.order.id,
+        amount: orderData.order.amount,
+        currency: orderData.order.currency,
+        name: 'Gymblix',
+        description: `${plan.name} · ${cycle === 'annual' ? 'Annual' : 'Monthly'}`,
+        prefill: {
+          name: user?.name,
+          email: user?.email,
+          contact: user?.phone ?? undefined,
+        },
+        theme: {color: TIER_GRADIENT[plan.tier][0]},
+      });
+
+      const {data: confirmData, error: confirmError} = await confirmPayment(
+        plan.id,
+        cycle,
+        checkoutResult.razorpay_order_id,
+        checkoutResult.razorpay_payment_id,
+        checkoutResult.razorpay_signature,
+      );
+
+      if (confirmError || !confirmData?.success) {
+        Alert.alert(
+          'Payment received, activation failed',
+          'Your payment went through but activating the plan failed. Contact support with your payment ID: ' +
+            checkoutResult.razorpay_payment_id,
+        );
+        return;
+      }
+
+      await fetchSubscription(gym.id);
+      navigation.goBack();
+    } catch (err: any) {
+      // RazorpayCheckout rejects on user cancel/error with {code, description}
+      if (err?.code !== 0) {
+        Alert.alert('Payment failed', err?.description ?? 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setProcessingPlanId(null);
+    }
   }
 
   // Get previous plan for a given plan (by tier order)
@@ -411,6 +462,8 @@ const FeatureLockedScreen: React.FC = () => {
             isCurrent={plan.tier === currentPlan.tier}
             billing={billing}
             isDark={isDark}
+            isProcessing={processingPlanId === plan.id}
+            disabled={processingPlanId !== null}
             onUpgrade={handleUpgrade}
           />
         ))}
@@ -609,6 +662,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
   },
   upgradeBtnLarge: {paddingVertical: 15},
+  upgradeBtnDisabled: {opacity: 0.5},
   upgradeBtnText: {color: '#FFF', fontSize: 14, fontWeight: '800'},
   currentBtn: {
     flexDirection: 'row',

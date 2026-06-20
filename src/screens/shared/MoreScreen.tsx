@@ -24,6 +24,7 @@ interface MenuItem {
   onPress?: () => void;
   adminOnly?: boolean;
   managerAndAdmin?: boolean;
+  trainerOnly?: boolean;
 }
 
 const MoreScreen: React.FC = () => {
@@ -61,6 +62,16 @@ const MoreScreen: React.FC = () => {
         {icon: 'package-variant', label: 'Packages', route: 'PackageList', color: COLORS.info, managerAndAdmin: true},
         {icon: 'currency-inr', label: 'Trainer Salary', route: 'AddSalary', color: COLORS.success, managerAndAdmin: true},
         {icon: 'chart-bar', label: 'Reports', route: 'Reports', color: COLORS.secondary, managerAndAdmin: true},
+        {icon: 'pill', label: 'Supplement Stock', route: 'SupplementList', color: COLORS.trainerColor, managerAndAdmin: true},
+        {
+          icon: 'cash-clock',
+          label: 'My Salary History',
+          color: COLORS.success,
+          trainerOnly: true,
+          onPress: () =>
+            user &&
+            navigation.navigate('TrainerPaymentHistory', {trainerId: user.id, trainerName: user.name}),
+        },
       ],
     },
     {
@@ -101,6 +112,7 @@ const MoreScreen: React.FC = () => {
   const shouldShow = (item: MenuItem) => {
     if (item.adminOnly && user?.role !== 'Admin') return false;
     if (item.managerAndAdmin && user?.role === 'Trainer') return false;
+    if (item.trainerOnly && user?.role !== 'Trainer') return false;
     return true;
   };
 

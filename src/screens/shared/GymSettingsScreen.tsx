@@ -20,6 +20,7 @@ import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
 import {COLORS, SPACING, BORDER_RADIUS, SUPABASE_BUCKETS} from '../../constants';
 import {updateGymSettings} from '../../services/userService';
+import {AuthMethod} from '../../types';
 import {uploadImage} from '../../services/storageService';
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
@@ -39,6 +40,8 @@ const GymSettingsScreen: React.FC = () => {
   const [paymentQr, setPaymentQr] = useState<string | null>(gym?.payment_qr || null);
   const [loading, setLoading] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [authMethod, setAuthMethod] = useState<AuthMethod>(gym?.auth_method || 'password');
+  const [savingAuthMethod, setSavingAuthMethod] = useState(false);
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
   const textColor = isDark ? COLORS.textDark : COLORS.text;
@@ -113,6 +116,27 @@ const GymSettingsScreen: React.FC = () => {
       Toast.show({type: 'success', text1: 'Settings Saved!'});
     } else {
       Toast.show({type: 'error', text1: 'Failed to save', text2: result.error});
+    }
+  };
+
+  const handleAuthMethodChange = async (method: AuthMethod) => {
+    if (!gym || method === authMethod) return;
+    setSavingAuthMethod(true);
+    const result = await updateGymSettings(gym.id, {auth_method: method});
+    setSavingAuthMethod(false);
+    if (!result.error) {
+      setAuthMethod(method);
+      updateGym({auth_method: method});
+      Toast.show({
+        type: 'success',
+        text1: 'Login Method Updated',
+        text2:
+          method === 'email_otp'
+            ? 'Staff will now sign in with a code sent to their email.'
+            : 'Staff will now sign in with their password.',
+      });
+    } else {
+      Toast.show({type: 'error', text1: 'Failed to update', text2: result.error});
     }
   };
 
@@ -267,6 +291,71 @@ const GymSettingsScreen: React.FC = () => {
           </Card.Content>
         </Card>
 
+        {/* Login Method */}
+        {user?.role === 'Admin' && (
+          <Card style={[styles.card, {backgroundColor: cardBg}]}>
+            <Card.Title title="Staff Login Method" />
+            <Card.Content>
+              <Text style={[styles.authMethodHint, {color: COLORS.textSecondary}]}>
+                Choose how Admin, Manager and Trainer accounts sign in to this gym.
+              </Text>
+              <View style={styles.authMethodRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.authMethodOption,
+                    {borderColor: authMethod === 'password' ? COLORS.primary : COLORS.border},
+                    authMethod === 'password' && {backgroundColor: COLORS.primary + '12'},
+                  ]}
+                  disabled={savingAuthMethod}
+                  onPress={() => handleAuthMethodChange('password')}
+                  activeOpacity={0.8}>
+                  <MaterialCommunityIcons
+                    name="lock-outline"
+                    size={20}
+                    color={authMethod === 'password' ? COLORS.primary : COLORS.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.authMethodLabel,
+                      {color: authMethod === 'password' ? COLORS.primary : textColor},
+                    ]}>
+                    Password
+                  </Text>
+                  {authMethod === 'password' && (
+                    <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.authMethodOption,
+                    {borderColor: authMethod === 'email_otp' ? COLORS.primary : COLORS.border},
+                    authMethod === 'email_otp' && {backgroundColor: COLORS.primary + '12'},
+                  ]}
+                  disabled={savingAuthMethod}
+                  onPress={() => handleAuthMethodChange('email_otp')}
+                  activeOpacity={0.8}>
+                  <MaterialCommunityIcons
+                    name="email-check-outline"
+                    size={20}
+                    color={authMethod === 'email_otp' ? COLORS.primary : COLORS.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.authMethodLabel,
+                      {color: authMethod === 'email_otp' ? COLORS.primary : textColor},
+                    ]}>
+                    Email OTP
+                  </Text>
+                  {authMethod === 'email_otp' && (
+                    <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Danger Zone */}
         {user?.role === 'Admin' && (
           <Card style={[styles.card, {backgroundColor: cardBg}]}>
@@ -333,6 +422,19 @@ const styles = StyleSheet.create({
   settingContent: {flex: 1},
   settingLabel: {fontSize: 14, fontWeight: '600'},
   settingValue: {fontSize: 12, marginTop: 2},
+  authMethodHint: {fontSize: 12, marginBottom: SPACING.sm, lineHeight: 17},
+  authMethodRow: {flexDirection: 'row', gap: SPACING.sm},
+  authMethodOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.sm,
+  },
+  authMethodLabel: {flex: 1, fontSize: 13, fontWeight: '600'},
 });
 
 export default GymSettingsScreen;

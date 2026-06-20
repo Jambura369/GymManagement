@@ -19,37 +19,56 @@ import LinearGradient from 'react-native-linear-gradient';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
-import {login} from '../../services/authService';
+import {login, getGymAuthMethod, sendLoginOtp, verifyLoginOtp} from '../../services/authService';
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
 import {COLORS, SPACING, BORDER_RADIUS, APP_NAME} from '../../constants';
-import {RootStackParamList} from '../../types';
+import {RootStackParamList, AuthMethod} from '../../types';
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import GymblixLogo from '../../components/common/GymblixLogo';
 
-const loginSchema = z.object({
+const emailSchema = z.object({
   email: z.string().email('Invalid email address'),
+});
+
+const passwordSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+const otpSchema = z.object({
+  code: z.string().length(6, 'Enter the 6-digit code'),
+});
+
+type EmailForm = z.infer<typeof emailSchema>;
+type PasswordForm = z.infer<typeof passwordSchema>;
+type OtpForm = z.infer<typeof otpSchema>;
 type Props = {navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>};
 
+type Step = 'email' | 'password' | 'otp';
+
 const LoginScreen: React.FC<Props> = ({navigation}) => {
+  const [step, setStep] = useState<Step>('email');
+  const [email, setEmail] = useState('');
+  const [checkingMethod, setCheckingMethod] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const {setAuth} = useAuthStore();
   const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
 
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {email: '', password: ''},
+  const emailForm = useForm<EmailForm>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: {email: ''},
+  });
+  const passwordForm = useForm<PasswordForm>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {password: ''},
+  });
+  const otpForm = useForm<OtpForm>({
+    resolver: zodResolver(otpSchema),
+    defaultValues: {code: ''},
   });
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
@@ -57,22 +76,70 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
   const cardBg = isDark ? COLORS.surfaceDark : COLORS.surface;
   const borderColor = isDark ? COLORS.borderDark : COLORS.border;
 
-  const onSubmit = async (data: LoginForm) => {
+  const goBackToEmail = () => {
+    setStep('email');
+    passwordForm.reset({password: ''});
+    otpForm.reset({code: ''});
+  };
+
+  const onSubmitEmail = async ({email: enteredEmail}: EmailForm) => {
+    setCheckingMethod(true);
+    const method: AuthMethod = await getGymAuthMethod(enteredEmail);
+    setEmail(enteredEmail);
+
+    if (method === 'email_otp') {
+      const result = await sendLoginOtp(enteredEmail);
+      setCheckingMethod(false);
+      if (result.error) {
+        Toast.show({type: 'error', text1: 'Could not send code', text2: result.error});
+        return;
+      }
+      Toast.show({type: 'success', text1: 'Code sent', text2: `Check ${enteredEmail}`});
+      setStep('otp');
+    } else {
+      setCheckingMethod(false);
+      setStep('password');
+    }
+  };
+
+  const onSubmitPassword = async ({password}: PasswordForm) => {
     setLoading(true);
-    const result = await login(data.email, data.password);
+    const result = await login(email, password);
     setLoading(false);
 
     if (result.error) {
       Toast.show({type: 'error', text1: 'Login Failed', text2: result.error});
       return;
     }
-
     if (result.data) {
       setAuth(result.data.user, result.data.gym);
-      Toast.show({
-        type: 'success',
-        text1: `Welcome back, ${result.data.user.name}!`,
-      });
+      Toast.show({type: 'success', text1: `Welcome back, ${result.data.user.name}!`});
+    }
+  };
+
+  const onSubmitOtp = async ({code}: OtpForm) => {
+    setLoading(true);
+    const result = await verifyLoginOtp(email, code);
+    setLoading(false);
+
+    if (result.error) {
+      Toast.show({type: 'error', text1: 'Verification Failed', text2: result.error});
+      return;
+    }
+    if (result.data) {
+      setAuth(result.data.user, result.data.gym);
+      Toast.show({type: 'success', text1: `Welcome back, ${result.data.user.name}!`});
+    }
+  };
+
+  const onResendOtp = async () => {
+    setResending(true);
+    const result = await sendLoginOtp(email);
+    setResending(false);
+    if (result.error) {
+      Toast.show({type: 'error', text1: 'Could not resend code', text2: result.error});
+    } else {
+      Toast.show({type: 'success', text1: 'Code resent', text2: `Check ${email}`});
     }
   };
 
@@ -120,109 +187,157 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
               borderWidth: isDark ? 1 : 0,
             },
           ]}>
-          <Text style={[styles.title, {color: textColor}]}>Welcome Back</Text>
+          {step !== 'email' && (
+            <TouchableOpacity style={styles.backRow} onPress={goBackToEmail} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="arrow-left" size={16} color={COLORS.primary} />
+              <Text style={[styles.backText, {color: COLORS.primary}]}>{email}</Text>
+            </TouchableOpacity>
+          )}
+
+          <Text style={[styles.title, {color: textColor}]}>
+            {step === 'email' ? 'Welcome Back' : step === 'password' ? 'Enter Password' : 'Verify Code'}
+          </Text>
           <Text style={[styles.subtitle, {color: COLORS.textSecondary}]}>
-            Sign in to manage your gym
+            {step === 'email'
+              ? 'Sign in to manage your gym'
+              : step === 'password'
+              ? 'Enter your password to continue'
+              : `Enter the 6-digit code sent to ${email}`}
           </Text>
 
-          <Controller
-            control={control}
-            name="email"
-            render={({field: {onChange, value, onBlur}}) => (
-              <AppInput
-                label="Email Address"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={errors.email?.message}
-                left={
-                  <TextInput.Icon
-                    icon="email-outline"
+          {step === 'email' && (
+            <>
+              <Controller
+                control={emailForm.control}
+                name="email"
+                render={({field: {onChange, value, onBlur}}) => (
+                  <AppInput
+                    label="Email Address"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    error={emailForm.formState.errors.email?.message}
+                    left={<TextInput.Icon icon="email-outline" color={COLORS.primary} />}
+                  />
+                )}
+              />
+              <AppButton
+                title="Continue"
+                onPress={emailForm.handleSubmit(onSubmitEmail)}
+                loading={checkingMethod}
+                style={styles.button}
+              />
+            </>
+          )}
+
+          {step === 'password' && (
+            <>
+              <Controller
+                control={passwordForm.control}
+                name="password"
+                render={({field: {onChange, value, onBlur}}) => (
+                  <AppInput
+                    label="Password"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry={!showPassword}
+                    error={passwordForm.formState.errors.password?.message}
+                    left={<TextInput.Icon icon="lock-outline" color={COLORS.primary} />}
+                    right={
+                      <TextInput.Icon
+                        icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        onPress={() => setShowPassword(prev => !prev)}
+                        color={COLORS.textSecondary}
+                      />
+                    }
+                  />
+                )}
+              />
+              <AppButton
+                title="Sign In"
+                onPress={passwordForm.handleSubmit(onSubmitPassword)}
+                loading={loading}
+                style={styles.button}
+              />
+              <TouchableOpacity
+                style={styles.forgotBtn}
+                onPress={() => navigation.navigate('ForgotPassword')}
+                activeOpacity={0.7}>
+                <Text style={[styles.forgotText, {color: COLORS.primary}]}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {step === 'otp' && (
+            <>
+              <Controller
+                control={otpForm.control}
+                name="code"
+                render={({field: {onChange, value}}) => (
+                  <AppInput
+                    label="6-Digit Code"
+                    value={value}
+                    onChangeText={t => onChange(t.replace(/[^0-9]/g, '').slice(0, 6))}
+                    keyboardType="numeric"
+                    maxLength={6}
+                    error={otpForm.formState.errors.code?.message}
+                    left={<TextInput.Icon icon="shield-key-outline" color={COLORS.primary} />}
+                  />
+                )}
+              />
+              <AppButton
+                title="Verify & Sign In"
+                onPress={otpForm.handleSubmit(onSubmitOtp)}
+                loading={loading}
+                style={styles.button}
+              />
+              <TouchableOpacity style={styles.forgotBtn} onPress={onResendOtp} disabled={resending} activeOpacity={0.7}>
+                <Text style={[styles.forgotText, {color: COLORS.primary}]}>
+                  {resending ? 'Resending...' : 'Resend Code'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {step === 'email' && (
+            <>
+              <View style={styles.divider}>
+                <View style={[styles.dividerLine, {backgroundColor: borderColor}]} />
+                <Text style={[styles.dividerText, {color: COLORS.textSecondary}]}>OR</Text>
+                <View style={[styles.dividerLine, {backgroundColor: borderColor}]} />
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.registerBtn,
+                  {
+                    borderColor: isDark ? COLORS.borderDark : COLORS.border,
+                    backgroundColor: isDark ? 'rgba(124,58,237,0.08)' : COLORS.background,
+                  },
+                ]}
+                onPress={() => navigation.navigate('RegisterGym')}
+                activeOpacity={0.75}>
+                <View style={styles.registerIconBox}>
+                  <MaterialCommunityIcons
+                    name="store-plus-outline"
+                    size={18}
                     color={COLORS.primary}
                   />
-                }
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="password"
-            render={({field: {onChange, value, onBlur}}) => (
-              <AppInput
-                label="Password"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                secureTextEntry={!showPassword}
-                error={errors.password?.message}
-                left={
-                  <TextInput.Icon
-                    icon="lock-outline"
-                    color={COLORS.primary}
-                  />
-                }
-                right={
-                  <TextInput.Icon
-                    icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    onPress={() => setShowPassword(prev => !prev)}
-                    color={COLORS.textSecondary}
-                  />
-                }
-              />
-            )}
-          />
-
-          <AppButton
-            title="Sign In"
-            onPress={handleSubmit(onSubmit)}
-            loading={loading}
-            style={styles.button}
-          />
-
-          <TouchableOpacity
-            style={styles.forgotBtn}
-            onPress={() => navigation.navigate('ForgotPassword')}
-            activeOpacity={0.7}>
-            <Text style={[styles.forgotText, {color: COLORS.primary}]}>
-              Forgot Password?
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={[styles.dividerLine, {backgroundColor: borderColor}]} />
-            <Text style={[styles.dividerText, {color: COLORS.textSecondary}]}>OR</Text>
-            <View style={[styles.dividerLine, {backgroundColor: borderColor}]} />
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.registerBtn,
-              {
-                borderColor: isDark ? COLORS.borderDark : COLORS.border,
-                backgroundColor: isDark ? 'rgba(124,58,237,0.08)' : COLORS.background,
-              },
-            ]}
-            onPress={() => navigation.navigate('RegisterGym')}
-            activeOpacity={0.75}>
-            <View style={styles.registerIconBox}>
-              <MaterialCommunityIcons
-                name="store-plus-outline"
-                size={18}
-                color={COLORS.primary}
-              />
-            </View>
-            <Text style={[styles.registerText, {color: textColor}]}>
-              Register a New Gym
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={18}
-              color={COLORS.textSecondary}
-            />
-          </TouchableOpacity>
+                </View>
+                <Text style={[styles.registerText, {color: textColor}]}>
+                  Register a New Gym
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={18}
+                  color={COLORS.textSecondary}
+                />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         <Text style={[styles.footer, {color: COLORS.textSecondary}]}>
@@ -304,6 +419,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 24,
   },
+  backRow: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: SPACING.sm},
+  backText: {fontSize: 13, fontWeight: '600'},
   title: {fontSize: 22, fontWeight: '800', marginBottom: 4},
   subtitle: {fontSize: 13, marginBottom: SPACING.lg},
   button: {marginTop: SPACING.sm},

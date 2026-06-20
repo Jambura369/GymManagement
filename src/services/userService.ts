@@ -1,5 +1,5 @@
 import {supabase} from '../supabase/client';
-import {User, AddUserForm, ApiResponse} from '../types';
+import {User, AddUserForm, ApiResponse, AuthMethod} from '../types';
 import {uploadImage} from './storageService';
 import {SUPABASE_BUCKETS} from '../constants';
 
@@ -132,6 +132,7 @@ export const updateGymSettings = async (
     phone?: string;
     address?: string;
     payment_qr?: string | null;
+    auth_method?: AuthMethod;
   },
 ): Promise<ApiResponse<null>> => {
   try {
