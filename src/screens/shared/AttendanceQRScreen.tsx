@@ -93,7 +93,7 @@ const AttendanceQRScreen: React.FC = () => {
     <View style={[styles.root, {backgroundColor: bgColor}]}>
       {/* Header */}
       <LinearGradient
-        colors={['#7C3AED', '#5B21B6']}
+        colors={['#E85452', '#B22524']}
         start={{x: 0, y: 0}}
         end={{x: 1, y: 1}}
         style={[styles.header, {paddingTop: insets.top + SPACING.sm}]}>
@@ -135,7 +135,7 @@ const AttendanceQRScreen: React.FC = () => {
               <QRCode
                 value={checkinUrl}
                 size={220}
-                color={isDark ? '#FFFFFF' : '#1A1A2E'}
+                color={isDark ? '#FFFFFF' : '#1A1414'}
                 backgroundColor={isDark ? COLORS.cardDark : '#FFFFFF'}
                 logoSize={36}
               />

@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   },
   content: {alignItems: 'center'},
   logoGlow: {
-    shadowColor: '#7C3AED',
+    shadowColor: '#D93B3A',
     shadowOffset: {width: 0, height: 0},
     shadowOpacity: 0.55,
     shadowRadius: 18,

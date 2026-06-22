@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   },
   headerContent: {alignItems: 'center'},
   logoGlow: {
-    shadowColor: '#7C3AED',
+    shadowColor: '#D93B3A',
     shadowOffset: {width: 0, height: 0},
     shadowOpacity: 0.85,
     shadowRadius: 24,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     borderRadius: 28,
     elevation: 8,
-    shadowColor: '#7C3AED',
+    shadowColor: '#D93B3A',
     shadowOffset: {width: 0, height: 8},
     shadowOpacity: 0.15,
     shadowRadius: 24,

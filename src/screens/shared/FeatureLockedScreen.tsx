@@ -33,7 +33,7 @@ type BillingCycle = 'monthly' | 'annual';
 const TIER_GRADIENT: Record<PlanTier, [string, string]> = {
   free_trial: ['#6B7280', '#4B5563'],
   starter:    ['#3B82F6', '#1D4ED8'],
-  professional: ['#7C3AED', '#5B21B6'],
+  professional: ['#E85452', '#B22524'],
   enterprise: ['#059669', '#065F46'],
 };
 

@@ -8,6 +8,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {useAuthStore} from '../../store/authStore';
 import {useThemeStore} from '../../store/themeStore';
+import {useSubscriptionStore} from '../../store/subscriptionStore';
 import {COLORS, SPACING, BORDER_RADIUS, ROLE_COLORS} from '../../constants';
 import {RootStackParamList} from '../../types';
 import RoleBadge from '../../components/common/RoleBadge';
@@ -31,6 +32,7 @@ const MoreScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {user, gym, logout} = useAuthStore();
   const {isDark, toggleTheme} = useThemeStore();
+  const {plan} = useSubscriptionStore();
   const insets = useSafeAreaInsets();
 
   const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
@@ -78,6 +80,20 @@ const MoreScreen: React.FC = () => {
       title: 'Administration',
       items: [
         {icon: 'account-group', label: 'Staff Management', route: 'UserManagement', color: COLORS.managerColor, adminOnly: true},
+        {
+          icon: 'crown-outline',
+          label: 'Subscription',
+          color: COLORS.gold,
+          adminOnly: true,
+          badge: plan?.name,
+          onPress: () =>
+            navigation.navigate('FeatureLocked', {
+              featureName: 'Subscription',
+              featureIcon: 'crown-outline',
+              requiredPlan: plan.tier,
+              description: 'View and manage your Gymblix plan.',
+            }),
+        },
         {icon: 'cog', label: 'Gym Settings', route: 'GymSettings', color: COLORS.textSecondary, adminOnly: true},
       ],
     },
@@ -134,8 +150,13 @@ const MoreScreen: React.FC = () => {
         <Text style={[styles.menuLabel, {color: item.color === COLORS.error ? item.color : textColor}]}>
           {item.label}
         </Text>
+        {item.badge && (
+          <View style={[styles.badgeChip, {backgroundColor: (item.color || COLORS.primary) + '18'}]}>
+            <Text style={[styles.badgeText, {color: item.color || COLORS.primary}]}>{item.badge}</Text>
+          </View>
+        )}
         {item.rightComponent || (
-          item.route ? (
+          (item.route || item.onPress) && item.color !== COLORS.error ? (
             <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.placeholder} />
           ) : null
         )}
@@ -242,6 +263,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuLabel: {flex: 1, fontSize: 14, fontWeight: '500'},
+  badgeChip: {paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.round, marginRight: 4},
+  badgeText: {fontSize: 11, fontWeight: '700'},
   version: {textAlign: 'center', fontSize: 12, marginTop: SPACING.xl},
 });
 

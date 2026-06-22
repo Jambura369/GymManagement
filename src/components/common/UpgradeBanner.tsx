@@ -56,8 +56,8 @@ const UpgradeBanner: React.FC<Props> = props => {
 
   if (resources.length === 0) return null;
 
-  const cardBg = isDark ? '#2A1F3D' : '#FFF7ED';
-  const borderColor = isDark ? '#7C3AED40' : '#F59E0B40';
+  const cardBg = isDark ? '#2A1B1B' : '#FFF7ED';
+  const borderColor = isDark ? '#D93B3A40' : '#F59E0B40';
   const textColor = isDark ? COLORS.textDark : COLORS.text;
   const subText = isDark ? COLORS.textSecondaryDark : COLORS.textSecondary;
 
