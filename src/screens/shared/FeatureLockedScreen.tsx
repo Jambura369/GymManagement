@@ -16,9 +16,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {FEATURE_LABELS} from '../../constants/features';
-import {useThemeStore} from '../../store/themeStore';
 import {useAuthStore} from '../../store/authStore';
 import {useSubscriptionStore, PLAN_DISPLAY_NAMES} from '../../store/subscriptionStore';
 import {createUpgradeOrder, confirmPayment, BillingCycle as ApiBillingCycle} from '../../services/subscriptionService';
@@ -92,8 +91,8 @@ function annualSavingPct(monthly: number, annual: number): number | null {
 
 // ── Skeleton card ─────────────────────────────────────────────────────────────
 function SkeletonCard({isDark}: {isDark: boolean}) {
-  const bg = isDark ? COLORS.cardDark : '#FFFFFF';
-  const shimmer = isDark ? '#FFFFFF12' : '#0000000A';
+  const bg = COLORS.surface;
+  const shimmer = '#FFFFFF12';
   return (
     <View style={[styles.card, {backgroundColor: bg, borderColor: 'transparent'}]}>
       <View style={styles.cardBody}>
@@ -145,20 +144,16 @@ function PlanCard({
   const savePct = annualSavingPct(plan.monthly_price, plan.annual_price);
   const isPaid = plan.monthly_price > 0;
 
-  const cardBg = isDark ? COLORS.cardDark : '#FFFFFF';
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const subColor = isDark ? COLORS.textSecondaryDark : COLORS.textSecondary;
-  const chipBg = isDark ? '#FFFFFF0D' : '#F3F4F6';
-  const dividerColor = isDark ? COLORS.borderDark : '#F0F0F5';
+  const chipBg = '#FFFFFF0D';
 
   return (
     <View
       style={[
         styles.card,
-        {backgroundColor: cardBg},
+        {backgroundColor: COLORS.surface},
         isRequired && styles.cardHighlighted,
         isRequired && {borderColor: gradient[0]},
-        !isRequired && {borderColor: isDark ? COLORS.borderDark : '#E5E7EB'},
+        !isRequired && {borderColor: COLORS.border},
       ]}>
 
       {isRequired && (
@@ -177,7 +172,7 @@ function PlanCard({
 
           <View style={styles.planMeta}>
             <View style={styles.planNameRow}>
-              <Text style={[styles.planName, {color: textColor}]}>{plan.name}</Text>
+              <Text style={[styles.planName, {color: COLORS.textPrimary}]}>{plan.name}</Text>
               {tag && (
                 <View style={[styles.tagChip, {backgroundColor: gradient[0] + '18'}]}>
                   <Text style={[styles.tagText, {color: gradient[0]}]}>{tag}</Text>
@@ -191,14 +186,14 @@ function PlanCard({
             </View>
             <View style={styles.limitRow}>
               <View style={[styles.limitChip, {backgroundColor: chipBg}]}>
-                <MaterialCommunityIcons name="account-group-outline" size={11} color={subColor} />
-                <Text style={[styles.limitText, {color: subColor}]}>
+                <MaterialCommunityIcons name="account-group-outline" size={11} color={COLORS.textSecondary} />
+                <Text style={[styles.limitText, {color: COLORS.textSecondary}]}>
                   {formatLimit(plan.limits.members, 'members')}
                 </Text>
               </View>
               <View style={[styles.limitChip, {backgroundColor: chipBg}]}>
-                <MaterialCommunityIcons name="account-tie-outline" size={11} color={subColor} />
-                <Text style={[styles.limitText, {color: subColor}]}>
+                <MaterialCommunityIcons name="account-tie-outline" size={11} color={COLORS.textSecondary} />
+                <Text style={[styles.limitText, {color: COLORS.textSecondary}]}>
                   {formatLimit(plan.limits.trainers, 'trainers')}
                 </Text>
               </View>
@@ -208,7 +203,7 @@ function PlanCard({
           {/* Price */}
           <View style={styles.priceBlock}>
             <Text style={[styles.priceMain, {color: gradient[0]}]}>{priceStr}</Text>
-            {isPaid && <Text style={[styles.priceSub, {color: subColor}]}>/mo</Text>}
+            {isPaid && <Text style={[styles.priceSub, {color: COLORS.textSecondary}]}>/mo</Text>}
             {billing === 'annual' && savePct && savePct > 0 && (
               <View style={styles.saveBadge}>
                 <Text style={styles.saveText}>-{savePct}%</Text>
@@ -217,14 +212,14 @@ function PlanCard({
           </View>
         </View>
 
-        <View style={[styles.divider, {backgroundColor: dividerColor}]} />
+        <View style={[styles.divider, {backgroundColor: COLORS.border}]} />
 
         {/* Features */}
         <View style={styles.featureList}>
           {features.map((f, i) => (
             <View key={i} style={styles.featureRow}>
               <MaterialCommunityIcons name="check-circle" size={15} color={gradient[0]} />
-              <Text style={[styles.featureText, {color: subColor}]}>{f}</Text>
+              <Text style={[styles.featureText, {color: COLORS.textSecondary}]}>{f}</Text>
             </View>
           ))}
         </View>
@@ -269,7 +264,6 @@ const FeatureLockedScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
-  const {isDark} = useThemeStore();
   const {plan: currentPlan, allPlans, allPlansLoading, fetchAllPlans, fetchSubscription} = useSubscriptionStore();
   const {user, gym} = useAuthStore();
 
@@ -290,11 +284,7 @@ const FeatureLockedScreen: React.FC = () => {
         .filter((p): p is SubscriptionPlan => Boolean(p))
     : [];
 
-  const bgColor = isDark ? COLORS.backgroundDark : '#F4F4F8';
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const subColor = isDark ? COLORS.textSecondaryDark : COLORS.textSecondary;
-  const cardBg = isDark ? COLORS.cardDark : '#FFFFFF';
-  const toggleActiveBg = isDark ? '#FFFFFF18' : '#F3F4F6';
+  const toggleActiveBg = '#FFFFFF18';
 
   async function handleUpgrade(plan: SubscriptionPlan) {
     // Free tier has no payment to take — fall back to the web flow until a
@@ -373,7 +363,7 @@ const FeatureLockedScreen: React.FC = () => {
   const globalSavePct = starterPlan ? annualSavingPct(starterPlan.monthly_price, starterPlan.annual_price) : null;
 
   return (
-    <View style={[styles.root, {backgroundColor: bgColor}]}>
+    <View style={[styles.root, {backgroundColor: COLORS.background}]}>
       {/* Gradient header */}
       <LinearGradient
         colors={gradient}
@@ -407,13 +397,13 @@ const FeatureLockedScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}>
 
         {/* Billing toggle */}
-        <View style={[styles.toggleWrap, {backgroundColor: cardBg}]}>
+        <View style={[styles.toggleWrap, {backgroundColor: COLORS.surface}]}>
           <TouchableOpacity
             style={[styles.toggleBtn, billing === 'monthly' && {backgroundColor: toggleActiveBg}]}
             onPress={() => setBilling('monthly')}
             activeOpacity={0.8}>
             <Text style={[styles.toggleText, {
-              color: billing === 'monthly' ? textColor : subColor,
+              color: billing === 'monthly' ? COLORS.textPrimary : COLORS.textSecondary,
               fontWeight: billing === 'monthly' ? '700' : '500',
             }]}>
               Monthly
@@ -424,7 +414,7 @@ const FeatureLockedScreen: React.FC = () => {
             onPress={() => setBilling('annual')}
             activeOpacity={0.8}>
             <Text style={[styles.toggleText, {
-              color: billing === 'annual' ? textColor : subColor,
+              color: billing === 'annual' ? COLORS.textPrimary : COLORS.textSecondary,
               fontWeight: billing === 'annual' ? '700' : '500',
             }]}>
               Annual
@@ -438,7 +428,7 @@ const FeatureLockedScreen: React.FC = () => {
         </View>
 
         {billing === 'annual' && (
-          <Text style={[styles.annualNote, {color: subColor}]}>
+          <Text style={[styles.annualNote, {color: COLORS.textSecondary}]}>
             Billed annually · 2 months free
           </Text>
         )}
@@ -446,9 +436,9 @@ const FeatureLockedScreen: React.FC = () => {
         {/* Loading skeletons */}
         {allPlansLoading && orderedPlans.length === 0 && (
           <>
-            <SkeletonCard isDark={isDark} />
-            <SkeletonCard isDark={isDark} />
-            <SkeletonCard isDark={isDark} />
+            <SkeletonCard isDark />
+            <SkeletonCard isDark />
+            <SkeletonCard isDark />
           </>
         )}
 
@@ -461,7 +451,7 @@ const FeatureLockedScreen: React.FC = () => {
             isRequired={plan.tier === requiredPlan}
             isCurrent={plan.tier === currentPlan.tier}
             billing={billing}
-            isDark={isDark}
+            isDark={true}
             isProcessing={processingPlanId === plan.id}
             disabled={processingPlanId !== null}
             onUpgrade={handleUpgrade}
@@ -472,7 +462,7 @@ const FeatureLockedScreen: React.FC = () => {
         {!allPlansLoading && orderedPlans.length === 0 && (
           <TouchableOpacity
             onPress={() => fetchAllPlans()}
-            style={[styles.retryBtn, {backgroundColor: cardBg}]}>
+            style={[styles.retryBtn, {backgroundColor: COLORS.surface}]}>
             <MaterialCommunityIcons name="refresh" size={18} color={COLORS.primary} />
             <Text style={[styles.retryText, {color: COLORS.primary}]}>Tap to retry</Text>
           </TouchableOpacity>
@@ -480,16 +470,16 @@ const FeatureLockedScreen: React.FC = () => {
 
         {/* Trust footer */}
         {orderedPlans.length > 0 && (
-          <View style={[styles.footerCard, {backgroundColor: cardBg}]}>
+          <View style={[styles.footerCard, {backgroundColor: COLORS.surface}]}>
             <MaterialCommunityIcons name="shield-check-outline" size={15} color={COLORS.success} />
-            <Text style={[styles.footerText, {color: subColor}]}>
+            <Text style={[styles.footerText, {color: COLORS.textSecondary}]}>
               Secure payment · Cancel anytime · No hidden fees
             </Text>
           </View>
         )}
 
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.laterBtn} activeOpacity={0.7}>
-          <Text style={[styles.laterText, {color: subColor}]}>Maybe Later</Text>
+          <Text style={[styles.laterText, {color: COLORS.textSecondary}]}>Maybe Later</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -552,7 +542,7 @@ const styles = StyleSheet.create({
   // Billing toggle
   toggleWrap: {
     flexDirection: 'row',
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: RADIUS.lg,
     padding: 4,
     marginBottom: SPACING.xs,
     elevation: 2,
@@ -566,7 +556,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 7,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     gap: 6,
   },
   toggleText: {fontSize: 13},
@@ -574,14 +564,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.round,
+    borderRadius: RADIUS.pill,
   },
   annualBadgeText: {color: '#FFF', fontSize: 10, fontWeight: '700'},
   annualNote: {fontSize: 11, textAlign: 'center', marginBottom: SPACING.sm},
 
   // Plan card
   card: {
-    borderRadius: BORDER_RADIUS.xl,
+    borderRadius: RADIUS.xl,
     marginBottom: 10,
     overflow: 'hidden',
     borderWidth: 1.5,
@@ -618,9 +608,9 @@ const styles = StyleSheet.create({
   planMeta: {flex: 1},
   planNameRow: {flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap'},
   planName: {fontSize: 15, fontWeight: '800'},
-  tagChip: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.round},
+  tagChip: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.pill},
   tagText: {fontSize: 10, fontWeight: '700'},
-  currentChip: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.round, borderWidth: 1},
+  currentChip: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.pill, borderWidth: 1},
   currentChipText: {fontSize: 10, fontWeight: '700'},
   limitRow: {flexDirection: 'row', gap: 5, marginTop: 5, flexWrap: 'wrap'},
   limitChip: {
@@ -629,7 +619,7 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: BORDER_RADIUS.round,
+    borderRadius: RADIUS.pill,
   },
   limitText: {fontSize: 10, fontWeight: '500'},
 
@@ -642,7 +632,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B98118',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.round,
+    borderRadius: RADIUS.pill,
   },
   saveText: {color: '#10B981', fontSize: 10, fontWeight: '700'},
 
@@ -659,7 +649,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.xs,
     paddingVertical: 13,
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: RADIUS.lg,
   },
   upgradeBtnLarge: {paddingVertical: 15},
   upgradeBtnDisabled: {opacity: 0.5},
@@ -670,14 +660,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.xs,
     paddingVertical: 13,
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: RADIUS.lg,
     borderWidth: 1.5,
   },
   currentBtnText: {fontSize: 14, fontWeight: '700'},
 
   // Skeleton
   skeletonLine: {height: 12, borderRadius: 6},
-  skeletonBtn: {height: 46, borderRadius: BORDER_RADIUS.lg, marginTop: 4},
+  skeletonBtn: {height: 46, borderRadius: RADIUS.lg, marginTop: 4},
 
   // Retry
   retryBtn: {
@@ -686,7 +676,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.sm,
     padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.xl,
+    borderRadius: RADIUS.xl,
     marginBottom: SPACING.md,
   },
   retryText: {fontSize: 14, fontWeight: '600'},
@@ -698,7 +688,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.xs,
     padding: SPACING.sm + 2,
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: RADIUS.lg,
     marginTop: SPACING.xs,
     marginBottom: SPACING.sm,
   },

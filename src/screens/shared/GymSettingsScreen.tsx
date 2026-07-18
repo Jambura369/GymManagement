@@ -8,44 +8,40 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  TextInput,
+  ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-import {Card, Switch} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
-import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Toast from 'react-native-toast-message';
 
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS, SUPABASE_BUCKETS} from '../../constants';
+import {useSubscriptionStore} from '../../store/subscriptionStore';
+import {SUPABASE_BUCKETS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {updateGymSettings} from '../../services/userService';
 import {AuthMethod} from '../../types';
 import {uploadImage} from '../../services/storageService';
-import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
-import AppHeader from '../../components/common/AppHeader';
+import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const GymSettingsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const {gym, user, updateGym} = useAuthStore();
-  const {isDark, toggleTheme} = useThemeStore();
-
+  const {plan} = useSubscriptionStore();
   const insets = useSafeAreaInsets();
+
   const [gymName, setGymName] = useState(gym?.gym_name || '');
   const [address, setAddress] = useState(gym?.address || '');
   const [phone, setPhone] = useState(gym?.phone || '');
   const [gymLogo, setGymLogo] = useState<string | null>(gym?.gym_logo || null);
   const [paymentQr, setPaymentQr] = useState<string | null>(gym?.payment_qr || null);
   const [loading, setLoading] = useState(false);
+  const [savingAuth, setSavingAuth] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [authMethod, setAuthMethod] = useState<AuthMethod>(gym?.auth_method || 'password');
-  const [savingAuthMethod, setSavingAuthMethod] = useState(false);
-
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
   const pickImage = (type: 'logo' | 'qr') => {
     showImagePicker(PICKER_PRESETS.LOGO, uri => {
@@ -56,64 +52,39 @@ const GymSettingsScreen: React.FC = () => {
 
   const handleSave = async () => {
     if (!gym) return;
-
     if (!gymName.trim()) {
-      Toast.show({type: 'error', text1: 'Validation Error', text2: 'Gym name cannot be empty'});
+      Toast.show({type: 'error', text1: 'Gym name cannot be empty'});
       return;
     }
     if (!phone.trim()) {
-      Toast.show({type: 'error', text1: 'Validation Error', text2: 'Phone number cannot be empty'});
+      Toast.show({type: 'error', text1: 'Phone number cannot be empty'});
       return;
     }
     if (!address.trim()) {
-      Toast.show({type: 'error', text1: 'Validation Error', text2: 'Address cannot be empty'});
+      Toast.show({type: 'error', text1: 'Address cannot be empty'});
       return;
     }
-
     setLoading(true);
-
     const updates: Record<string, any> = {
       gym_name: gymName.trim(),
       address: address.trim(),
       phone: phone.trim(),
     };
-
-    // Upload new logo if changed — show error but continue saving other fields
     if (gymLogo && gymLogo !== gym.gym_logo) {
-      const result = await uploadImage(
-        gymLogo,
-        SUPABASE_BUCKETS.GYM_LOGOS,
-        `${gym.id}/logo`,
-        gym.gym_logo || undefined,
-      );
-      if (result.data) {
-        updates.gym_logo = result.data;
-      } else {
-        Toast.show({type: 'error', text1: 'Logo upload failed', text2: result.error || undefined});
-      }
+      const res = await uploadImage(gymLogo, SUPABASE_BUCKETS.GYM_LOGOS, `${gym.id}/logo`, gym.gym_logo || undefined);
+      if (res.data) updates.gym_logo = res.data;
+      else Toast.show({type: 'error', text1: 'Logo upload failed', text2: res.error || undefined});
     }
-
-    // Upload new QR if changed
     if (paymentQr && paymentQr !== gym.payment_qr) {
-      const result = await uploadImage(
-        paymentQr,
-        SUPABASE_BUCKETS.PAYMENT_QR,
-        `${gym.id}/qr`,
-        gym.payment_qr || undefined,
-      );
-      if (result.data) {
-        updates.payment_qr = result.data;
-      } else {
-        Toast.show({type: 'error', text1: 'QR upload failed', text2: result.error || undefined});
-      }
+      const res = await uploadImage(paymentQr, SUPABASE_BUCKETS.PAYMENT_QR, `${gym.id}/qr`, gym.payment_qr || undefined);
+      if (res.data) updates.payment_qr = res.data;
+      else Toast.show({type: 'error', text1: 'QR upload failed', text2: res.error || undefined});
     }
-
     const result = await updateGymSettings(gym.id, updates);
     setLoading(false);
-
     if (!result.error) {
       updateGym(updates);
-      Toast.show({type: 'success', text1: 'Settings Saved!'});
+      Toast.show({type: 'success', text1: 'Settings saved!'});
     } else {
       Toast.show({type: 'error', text1: 'Failed to save', text2: result.error});
     }
@@ -121,254 +92,245 @@ const GymSettingsScreen: React.FC = () => {
 
   const handleAuthMethodChange = async (method: AuthMethod) => {
     if (!gym || method === authMethod) return;
-    setSavingAuthMethod(true);
+    setSavingAuth(true);
     const result = await updateGymSettings(gym.id, {auth_method: method});
-    setSavingAuthMethod(false);
+    setSavingAuth(false);
     if (!result.error) {
       setAuthMethod(method);
       updateGym({auth_method: method});
       Toast.show({
         type: 'success',
-        text1: 'Login Method Updated',
-        text2:
-          method === 'email_otp'
-            ? 'Staff will now sign in with a code sent to their email.'
-            : 'Staff will now sign in with their password.',
+        text1: 'Login method updated',
+        text2: method === 'email_otp' ? 'Staff sign in with email OTP' : 'Staff sign in with password',
       });
     } else {
       Toast.show({type: 'error', text1: 'Failed to update', text2: result.error});
     }
   };
 
-  const SettingRow = ({
-    icon,
-    label,
-    value,
-    onPress,
-    rightComponent,
-  }: {
-    icon: string;
-    label: string;
-    value?: string;
-    onPress?: () => void;
-    rightComponent?: React.ReactNode;
-  }) => (
-    <TouchableOpacity
-      style={styles.settingRow}
-      onPress={onPress}
-      disabled={!onPress && !rightComponent}
-      activeOpacity={onPress ? 0.7 : 1}>
-      <MaterialCommunityIcons name={icon} size={22} color={COLORS.primary} />
-      <View style={styles.settingContent}>
-        <Text style={[styles.settingLabel, {color: textColor}]}>{label}</Text>
-        {value && (
-          <Text style={[styles.settingValue, {color: COLORS.textSecondary}]}>
-            {value}
-          </Text>
-        )}
+  const renderInput = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    opts?: {multiline?: boolean; keyboardType?: any; numberOfLines?: number},
+  ) => (
+    <View style={styles.inputWrap}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <TextInput
+        style={[styles.input, opts?.multiline && styles.inputMulti]}
+        value={value}
+        onChangeText={onChange}
+        placeholder={label}
+        placeholderTextColor={COLORS.textDisabled}
+        keyboardType={opts?.keyboardType || 'default'}
+        multiline={opts?.multiline}
+        numberOfLines={opts?.numberOfLines}
+        autoCorrect={false}
+        textAlignVertical={opts?.multiline ? 'top' : 'center'}
+      />
+    </View>
+  );
+
+  const renderLink = (icon: string, label: string, sub: string, onPress: () => void) => (
+    <TouchableOpacity style={styles.linkRow} onPress={onPress} activeOpacity={0.8}>
+      <View style={styles.linkIcon}>
+        <MaterialCommunityIcons name={icon} size={20} color={COLORS.primary} />
       </View>
-      {rightComponent || (onPress && (
-        <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.placeholder} />
-      ))}
+      <View style={styles.linkInfo}>
+        <Text style={styles.linkLabel}>{label}</Text>
+        <Text style={styles.linkSub}>{sub}</Text>
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.textSecondary} />
     </TouchableOpacity>
   );
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader
-        title="Gym Settings"
-        onBack={() => navigation.goBack()}
-        isDark={isDark}
-      />
+      <StatusBar backgroundColor={COLORS.background} barStyle="light-content" />
+
+      {/* Header */}
+      <View style={[styles.header, {paddingTop: insets.top + SPACING.sm}]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Gym Settings</Text>
+        <View style={{width: 24}} />
+      </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
+        contentContainerStyle={[styles.scroll, {paddingBottom: insets.bottom + SPACING.xxl}]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
 
-        {/* Gym Branding */}
-        <Card style={[styles.card, {backgroundColor: cardBg}]}>
-          <Card.Title title="Gym Branding" />
-          <Card.Content>
+        {/* ── Gym Branding ─────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>GYM BRANDING</Text>
+        <View style={styles.section}>
+          {/* Logo + QR side by side */}
+          <View style={styles.mediaRow}>
             {/* Logo */}
-            <View style={styles.imageRow}>
-              <View style={styles.imageSection}>
-                <Text style={[styles.imageLabel, {color: COLORS.textSecondary}]}>Gym Logo</Text>
-                <View>
-                  <TouchableOpacity
-                    onPress={() => (gymLogo ? setViewerUri(gymLogo) : pickImage('logo'))}
-                    activeOpacity={0.7}>
-                    {gymLogo ? (
-                      <Image source={{uri: gymLogo}} style={styles.logo} />
-                    ) : (
-                      <View style={styles.imagePlaceholder}>
-                        <MaterialCommunityIcons name="store-outline" size={28} color={COLORS.placeholder} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.editBadge}
-                    onPress={() => pickImage('logo')}
-                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-                    <MaterialCommunityIcons name="pencil" size={12} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.imageSection}>
-                <Text style={[styles.imageLabel, {color: COLORS.textSecondary}]}>Payment QR</Text>
-                <View>
-                  <TouchableOpacity
-                    onPress={() => (paymentQr ? setViewerUri(paymentQr) : pickImage('qr'))}
-                    activeOpacity={0.7}>
-                    {paymentQr ? (
-                      <Image source={{uri: paymentQr}} style={styles.logo} />
-                    ) : (
-                      <View style={styles.imagePlaceholder}>
-                        <MaterialCommunityIcons name="qrcode" size={28} color={COLORS.placeholder} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.editBadge}
-                    onPress={() => pickImage('qr')}
-                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-                    <MaterialCommunityIcons name="pencil" size={12} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
+            <View style={styles.mediaItem}>
+              <Text style={styles.mediaLabel}>Gym Logo</Text>
+              <View style={styles.mediaWrap}>
+                <TouchableOpacity
+                  onPress={() => (gymLogo ? setViewerUri(gymLogo) : pickImage('logo'))}
+                  activeOpacity={0.8}>
+                  {gymLogo ? (
+                    <Image source={{uri: gymLogo}} style={styles.mediaImg} />
+                  ) : (
+                    <View style={styles.mediaPlaceholder}>
+                      <MaterialCommunityIcons name="store-outline" size={28} color={COLORS.textSecondary} />
+                      <Text style={styles.mediaPlaceholderText}>Add Logo</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mediaBadge} onPress={() => pickImage('logo')} hitSlop={8}>
+                  <MaterialCommunityIcons name="pencil" size={12} color="#0B0F0E" />
+                </TouchableOpacity>
               </View>
             </View>
 
-            <AppInput label="Gym Name" value={gymName} onChangeText={setGymName} />
-            <AppInput label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-            <AppInput label="Address" value={address} onChangeText={setAddress} multiline numberOfLines={2} />
+            {/* QR */}
+            <View style={styles.mediaItem}>
+              <Text style={styles.mediaLabel}>Payment QR</Text>
+              <View style={styles.mediaWrap}>
+                <TouchableOpacity
+                  onPress={() => (paymentQr ? setViewerUri(paymentQr) : pickImage('qr'))}
+                  activeOpacity={0.8}>
+                  {paymentQr ? (
+                    <Image source={{uri: paymentQr}} style={styles.mediaImg} />
+                  ) : (
+                    <View style={styles.mediaPlaceholder}>
+                      <MaterialCommunityIcons name="qrcode" size={28} color={COLORS.textSecondary} />
+                      <Text style={styles.mediaPlaceholderText}>Add QR</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mediaBadge} onPress={() => pickImage('qr')} hitSlop={8}>
+                  <MaterialCommunityIcons name="pencil" size={12} color="#0B0F0E" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
 
-            <AppButton
-              title="Save Changes"
-              onPress={handleSave}
-              loading={loading}
-              icon="content-save"
-            />
-          </Card.Content>
-        </Card>
+          {renderInput('Gym Name', gymName, setGymName)}
+          {renderInput('Phone Number', phone, setPhone, {keyboardType: 'phone-pad'})}
+          {renderInput('Address', address, setAddress, {multiline: true, numberOfLines: 3})}
 
-        {/* App Preferences */}
-        <Card style={[styles.card, {backgroundColor: cardBg}]}>
-          <Card.Title title="App Preferences" />
-          <Card.Content>
-            <SettingRow
-              icon="theme-light-dark"
-              label="Dark Mode"
-              value={isDark ? 'Enabled' : 'Disabled'}
-              rightComponent={
-                <Switch value={isDark} onValueChange={toggleTheme} color={COLORS.primary} />
-              }
-            />
-          </Card.Content>
-        </Card>
+          <TouchableOpacity
+            style={[styles.saveBtn, loading && {opacity: 0.7}]}
+            onPress={handleSave}
+            disabled={loading}
+            activeOpacity={0.85}>
+            {loading ? (
+              <ActivityIndicator size="small" color="#0B0F0E" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="content-save" size={18} color="#0B0F0E" />
+                <Text style={styles.saveBtnText}>Save Changes</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
 
-        {/* Gym Info (Read-only) */}
-        <Card style={[styles.card, {backgroundColor: cardBg}]}>
-          <Card.Title title="Account Info" />
-          <Card.Content>
-            <SettingRow icon="email" label="Owner Email" value={gym?.email} />
-            <SettingRow icon="calendar" label="Registered" value={gym?.created_at ? new Date(gym.created_at).toLocaleDateString() : ''} />
-          </Card.Content>
-        </Card>
+        {/* ── Account Info ─────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>ACCOUNT INFO</Text>
+        <View style={styles.section}>
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="email-outline" size={18} color={COLORS.primary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Owner Email</Text>
+              <Text style={styles.infoValue}>{gym?.email}</Text>
+            </View>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="calendar-check" size={18} color={COLORS.primary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Registered</Text>
+              <Text style={styles.infoValue}>
+                {gym?.created_at ? new Date(gym.created_at).toLocaleDateString('en-IN', {year: 'numeric', month: 'long', day: 'numeric'}) : '—'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="crown-outline" size={18} color="#FFD700" />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Current Plan</Text>
+              <Text style={[styles.infoValue, {color: '#FFD700'}]}>{plan?.name || 'Free Trial'}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Subscription')}
+              style={styles.managePlanBtn}>
+              <Text style={styles.managePlanText}>Manage</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        {/* Packages */}
-        <Card style={[styles.card, {backgroundColor: cardBg}]}>
-          <Card.Title title="Membership Packages" />
-          <Card.Content>
-            <SettingRow
-              icon="package-variant"
-              label="Manage Packages"
-              value="Create, edit, delete packages"
-              onPress={() => (navigation as any).navigate('PackageList')}
-            />
-          </Card.Content>
-        </Card>
+        {/* ── Quick Links ─────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>QUICK LINKS</Text>
+        <View style={styles.section}>
+          {renderLink('package-variant', 'Membership Packages', 'Create, edit, delete packages', () => navigation.navigate('PackageList'))}
+          <View style={styles.divider} />
+          {renderLink('account-group', 'Staff Management', 'Add & manage trainers and managers', () => navigation.navigate('UserManagement'))}
+          <View style={styles.divider} />
+          {renderLink('bell-outline', 'Notifications', 'Manage notification preferences', () => navigation.navigate('Notifications'))}
+        </View>
 
-        {/* Login Method */}
+        {/* ── Staff Login Method ────────────────────────────── */}
         {user?.role === 'Admin' && (
-          <Card style={[styles.card, {backgroundColor: cardBg}]}>
-            <Card.Title title="Staff Login Method" />
-            <Card.Content>
-              <Text style={[styles.authMethodHint, {color: COLORS.textSecondary}]}>
+          <>
+            <Text style={styles.sectionLabel}>STAFF LOGIN METHOD</Text>
+            <View style={styles.section}>
+              <Text style={styles.authHint}>
                 Choose how Admin, Manager and Trainer accounts sign in to this gym.
               </Text>
-              <View style={styles.authMethodRow}>
+              <View style={styles.toggleRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.authMethodOption,
-                    {borderColor: authMethod === 'password' ? COLORS.primary : COLORS.border},
-                    authMethod === 'password' && {backgroundColor: COLORS.primary + '12'},
-                  ]}
-                  disabled={savingAuthMethod}
+                  style={[styles.toggleBtn, authMethod === 'password' && styles.toggleBtnActive]}
                   onPress={() => handleAuthMethodChange('password')}
+                  disabled={savingAuth}
                   activeOpacity={0.8}>
                   <MaterialCommunityIcons
                     name="lock-outline"
-                    size={20}
-                    color={authMethod === 'password' ? COLORS.primary : COLORS.textSecondary}
+                    size={16}
+                    color={authMethod === 'password' ? '#0B0F0E' : COLORS.textSecondary}
                   />
-                  <Text
-                    style={[
-                      styles.authMethodLabel,
-                      {color: authMethod === 'password' ? COLORS.primary : textColor},
-                    ]}>
+                  <Text style={[styles.toggleText, authMethod === 'password' && styles.toggleTextActive]}>
                     Password
                   </Text>
                   {authMethod === 'password' && (
-                    <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.primary} />
+                    <MaterialCommunityIcons name="check-circle" size={14} color="#0B0F0E" />
                   )}
                 </TouchableOpacity>
-
                 <TouchableOpacity
-                  style={[
-                    styles.authMethodOption,
-                    {borderColor: authMethod === 'email_otp' ? COLORS.primary : COLORS.border},
-                    authMethod === 'email_otp' && {backgroundColor: COLORS.primary + '12'},
-                  ]}
-                  disabled={savingAuthMethod}
+                  style={[styles.toggleBtn, authMethod === 'email_otp' && styles.toggleBtnActive]}
                   onPress={() => handleAuthMethodChange('email_otp')}
+                  disabled={savingAuth}
                   activeOpacity={0.8}>
                   <MaterialCommunityIcons
                     name="email-check-outline"
-                    size={20}
-                    color={authMethod === 'email_otp' ? COLORS.primary : COLORS.textSecondary}
+                    size={16}
+                    color={authMethod === 'email_otp' ? '#0B0F0E' : COLORS.textSecondary}
                   />
-                  <Text
-                    style={[
-                      styles.authMethodLabel,
-                      {color: authMethod === 'email_otp' ? COLORS.primary : textColor},
-                    ]}>
+                  <Text style={[styles.toggleText, authMethod === 'email_otp' && styles.toggleTextActive]}>
                     Email OTP
                   </Text>
                   {authMethod === 'email_otp' && (
-                    <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.primary} />
+                    <MaterialCommunityIcons name="check-circle" size={14} color="#0B0F0E" />
                   )}
                 </TouchableOpacity>
               </View>
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Danger Zone */}
-        {user?.role === 'Admin' && (
-          <Card style={[styles.card, {backgroundColor: cardBg}]}>
-            <Card.Title title="Staff Management" titleStyle={{color: COLORS.error}} />
-            <Card.Content>
-              <SettingRow
-                icon="account-group"
-                label="Manage Staff"
-                value="Add/remove managers and trainers"
-                onPress={() => (navigation as any).navigate('UserManagement')}
-              />
-            </Card.Content>
-          </Card>
+              {savingAuth && (
+                <View style={styles.savingRow}>
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <Text style={styles.savingText}>Updating…</Text>
+                </View>
+              )}
+            </View>
+          </>
         )}
       </ScrollView>
 
@@ -382,59 +344,185 @@ const GymSettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
-  scroll: {padding: SPACING.md},
-  card: {borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, elevation: 2},
-  imageRow: {flexDirection: 'row', gap: SPACING.xl, justifyContent: 'center', marginBottom: SPACING.md},
-  imageSection: {alignItems: 'center'},
-  imageLabel: {fontSize: 12, marginBottom: SPACING.xs},
-  logo: {width: 80, height: 80, borderRadius: BORDER_RADIUS.md, borderWidth: 2, borderColor: COLORS.primary},
-  imagePlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: BORDER_RADIUS.md,
+  container: {flex: 1, backgroundColor: COLORS.background},
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  headerTitle: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.primary,
+  },
+
+  scroll: {paddingHorizontal: SPACING.md, paddingTop: SPACING.xs},
+
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+    marginBottom: SPACING.xs,
+    marginTop: SPACING.md,
+  },
+  section: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+
+  // Media (logo + qr)
+  mediaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: SPACING.md,
+  },
+  mediaItem: {alignItems: 'center', gap: SPACING.xs},
+  mediaLabel: {fontSize: FONT_SIZE.xs, color: COLORS.textSecondary},
+  mediaWrap: {position: 'relative'},
+  mediaImg: {
+    width: 90,
+    height: 90,
+    borderRadius: RADIUS.md,
     borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  mediaPlaceholder: {
+    width: 90,
+    height: 90,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
     borderStyle: 'dashed',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
+    gap: 4,
   },
-  editBadge: {
+  mediaPlaceholderText: {fontSize: 10, color: COLORS.textSecondary},
+  mediaBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingRow: {
+
+  // Inputs
+  inputWrap: {marginBottom: SPACING.sm},
+  inputLabel: {
+    fontSize: FONT_SIZE.xs,
+    fontWeight: FONT_WEIGHT.semiBold,
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    height: 48,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textPrimary,
+  },
+  inputMulti: {height: 80, paddingTop: SPACING.sm},
+
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.pill,
+    paddingVertical: 14,
+    marginTop: SPACING.xs,
+  },
+  saveBtnText: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.bold,
+    color: '#0B0F0E',
+  },
+
+  // Info rows
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
     paddingVertical: SPACING.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
-  settingContent: {flex: 1},
-  settingLabel: {fontSize: 14, fontWeight: '600'},
-  settingValue: {fontSize: 12, marginTop: 2},
-  authMethodHint: {fontSize: 12, marginBottom: SPACING.sm, lineHeight: 17},
-  authMethodRow: {flexDirection: 'row', gap: SPACING.sm},
-  authMethodOption: {
+  infoContent: {flex: 1},
+  infoLabel: {fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, marginBottom: 2},
+  infoValue: {fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textPrimary},
+  divider: {height: 1, backgroundColor: COLORS.border},
+  managePlanBtn: {
+    backgroundColor: COLORS.primary + '18',
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  managePlanText: {
+    fontSize: 12,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.primary,
+  },
+
+  // Link rows
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+  },
+  linkIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkInfo: {flex: 1},
+  linkLabel: {fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textPrimary},
+  linkSub: {fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, marginTop: 1},
+
+  // Auth method
+  authHint: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+    marginBottom: SPACING.md,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
+    padding: 4,
+    gap: 4,
+  },
+  toggleBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    borderWidth: 1.5,
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.sm,
+    paddingVertical: 10,
+    borderRadius: RADIUS.sm,
   },
-  authMethodLabel: {flex: 1, fontSize: 13, fontWeight: '600'},
+  toggleBtnActive: {backgroundColor: COLORS.primary},
+  toggleText: {fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textSecondary},
+  toggleTextActive: {color: '#0B0F0E', fontWeight: FONT_WEIGHT.bold},
+  savingRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm},
+  savingText: {fontSize: FONT_SIZE.xs, color: COLORS.textSecondary},
 });
 
 export default GymSettingsScreen;

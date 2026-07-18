@@ -24,13 +24,12 @@ import dayjs from 'dayjs';
 
 import {useStudentStore} from '../../store/studentStore';
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList, Package, User} from '../../types';
 import {fetchPackages} from '../../services/packageService';
 import {fetchUsers} from '../../services/userService';
 import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
+import FormField from '../../components/common/FormField';
 import AppHeader from '../../components/common/AppHeader';
 import SelectPicker from '../../components/common/SelectPicker';
 import ImageViewerModal from '../../components/common/ImageViewerModal';
@@ -55,10 +54,28 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'AddStudent'>;
 
+// Preview the membership expiry from the joining date + selected package type
+// (mirrors the server's renewal duration). Display-only.
+const computeExpiry = (start: string, pkgType?: string): string => {
+  if (!pkgType) return '';
+  const d = dayjs(start);
+  switch (pkgType) {
+    case 'Monthly':
+      return d.add(1, 'month').format('DD MMM YYYY');
+    case 'Quarterly':
+      return d.add(3, 'month').format('DD MMM YYYY');
+    case 'Half Year':
+      return d.add(6, 'month').format('DD MMM YYYY');
+    case 'Yearly':
+      return d.add(1, 'year').format('DD MMM YYYY');
+    default:
+      return '';
+  }
+};
+
 const AddStudentScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {user, gym} = useAuthStore();
-  const {isDark} = useThemeStore();
   const {addStudent} = useStudentStore();
 
   const insets = useSafeAreaInsets();
@@ -71,9 +88,6 @@ const AddStudentScreen: React.FC = () => {
   const [packagesError, setPackagesError] = useState('');
   const [trainers, setTrainers] = useState<User[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
-
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
 
   const {
     control,
@@ -100,6 +114,8 @@ const AddStudentScreen: React.FC = () => {
   const paymentType = watch('payment_type');
   const selectedPackageId = watch('package_id');
 
+  const selectedPackage = packages.find(p => p.id === selectedPackageId);
+  const expiryPreview = computeExpiry(joiningDate, selectedPackage?.type);
 
   useEffect(() => {
     loadData();
@@ -150,9 +166,7 @@ const AddStudentScreen: React.FC = () => {
   };
 
   const pickImage = () => {
-    showImagePicker(PICKER_PRESETS.AVATAR, uri =>
-      setImage(uri),
-    );
+    showImagePicker(PICKER_PRESETS.AVATAR, uri => setImage(uri));
   };
 
   const onSubmit = async (data: FormData) => {
@@ -196,248 +210,242 @@ const AddStudentScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader
-        title="Add New Student"
-        onBack={() => navigation.goBack()}
-        isDark={isDark}
-      />
+      <AppHeader title="Add Student" onBack={() => navigation.goBack()} isDark={true} />
       <ScrollView
         contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
-        {/* Photo */}
-        <TouchableOpacity
-          style={styles.photoContainer}
-          onPress={() => (image ? setViewerVisible(true) : pickImage())}>
-          {image ? (
-            <Image source={{uri: image}} style={styles.photo} />
-          ) : (
-            <View style={styles.photoPlaceholder}>
+        {/* Profile photo */}
+        <View style={styles.photoBlock}>
+          <TouchableOpacity
+            style={styles.photoRing}
+            onPress={() => (image ? setViewerVisible(true) : pickImage())}
+            activeOpacity={0.8}>
+            {image ? (
+              <Image source={{uri: image}} style={styles.photo} />
+            ) : (
               <MaterialCommunityIcons
                 name="camera-plus-outline"
                 size={32}
-                color={COLORS.placeholder}
+                color={COLORS.textSecondary}
               />
-              <Text style={styles.photoText}>Add Photo</Text>
+            )}
+            <View style={styles.photoBadge}>
+              <MaterialCommunityIcons name="plus" size={16} color={COLORS.background} />
             </View>
+          </TouchableOpacity>
+          {image ? (
+            <View style={styles.photoActions}>
+              <TouchableOpacity onPress={pickImage} style={styles.photoActionBtn}>
+                <MaterialCommunityIcons name="image-edit" size={15} color={COLORS.primary} />
+                <Text style={[styles.photoActionText, {color: COLORS.primary}]}>Change</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setImage(null)} style={styles.photoActionBtn}>
+                <MaterialCommunityIcons name="close-circle" size={15} color={COLORS.error} />
+                <Text style={[styles.photoActionText, {color: COLORS.error}]}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.photoLabel}>Upload Profile Photo</Text>
           )}
-        </TouchableOpacity>
-        {image && (
-          <View style={styles.photoActions}>
-            <TouchableOpacity onPress={pickImage} style={styles.photoActionBtn}>
-              <MaterialCommunityIcons name="image-edit" size={16} color={COLORS.primary} />
-              <Text style={[styles.photoActionText, {color: COLORS.primary}]}>Change</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setImage(null)} style={styles.photoActionBtn}>
-              <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
-              <Text style={[styles.photoActionText, {color: COLORS.error}]}>Remove</Text>
-            </TouchableOpacity>
+        </View>
+
+        {/* Identity */}
+        <Controller
+          control={control}
+          name="name"
+          render={({field: {onChange, value, onBlur}}) => (
+            <FormField
+              label="Full Name"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="e.g. Alex Rivera"
+              error={errors.name?.message}
+            />
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="phone"
+          render={({field: {onChange, value, onBlur}}) => (
+            <FormField
+              label="Phone Number"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              keyboardType="phone-pad"
+              placeholder="+91 00000 00000"
+              error={errors.phone?.message}
+            />
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="email"
+          render={({field: {onChange, value, onBlur}}) => (
+            <FormField
+              label="Email Address"
+              value={value ?? ''}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="name@email.com"
+              error={errors.email?.message}
+            />
+          )}
+        />
+
+        {/* Membership package */}
+        <Text style={styles.fieldLabel}>Membership Package</Text>
+        {packagesError ? (
+          <View style={styles.packageAlert}>
+            <Text style={styles.packageAlertText}>{packagesError}</Text>
           </View>
-        )}
+        ) : null}
+        <Controller
+          control={control}
+          name="package_id"
+          render={({field: {onChange, value}}) => (
+            <SelectPicker
+              label={packagesLoading ? 'Loading packages…' : 'Select a package'}
+              value={value}
+              options={packageOptions}
+              onSelect={onChange}
+              error={errors.package_id?.message}
+              isDark={true}
+            />
+          )}
+        />
 
-        {/* Personal Info */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Personal Info</Text>
-
-          <Controller
-            control={control}
-            name="name"
-            render={({field: {onChange, value, onBlur}}) => (
-              <AppInput
-                label="Full Name *"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.name?.message}
-              />
-            )}
+        {/* Start / Expiry dates */}
+        <View style={styles.dateRow}>
+          <FormField
+            label="Start Date"
+            value={dayjs(joiningDate).format('DD MMM YYYY')}
+            leftIcon="calendar"
+            onPress={() => setShowDatePicker(true)}
+            style={styles.dateHalf}
           />
-
-          <Controller
-            control={control}
-            name="phone"
-            render={({field: {onChange, value, onBlur}}) => (
-              <AppInput
-                label="Phone Number *"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                keyboardType="phone-pad"
-                error={errors.phone?.message}
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="email"
-            render={({field: {onChange, value, onBlur}}) => (
-              <AppInput
-                label="Email (Optional)"
-                value={value ?? ''}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={errors.email?.message}
-              />
-            )}
+          <FormField
+            label="Expiry Date"
+            value={expiryPreview}
+            placeholder="Auto"
+            leftIcon="calendar-end"
+            readOnly
+            style={styles.dateHalf}
           />
         </View>
 
-        {/* Membership */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Membership</Text>
+        <DatePickerModal
+          visible={showDatePicker}
+          value={joiningDate || dayjs().format('YYYY-MM-DD')}
+          isDark={true}
+          onConfirm={date => {
+            setValue('joining_date', date);
+            setShowDatePicker(false);
+          }}
+          onCancel={() => setShowDatePicker(false)}
+        />
 
-          {/* Joining Date */}
-          <TouchableOpacity
-            style={[styles.dateField, {borderColor: COLORS.border}]}
-            onPress={() => setShowDatePicker(true)}>
-            <MaterialCommunityIcons
-              name="calendar"
-              size={20}
-              color={COLORS.textSecondary}
-            />
-            <View style={styles.dateContent}>
-              <Text style={styles.dateLabel}>Joining Date</Text>
-              <Text style={[styles.dateValue, {color: textColor}]}>
-                {dayjs(joiningDate).format('DD MMM YYYY')}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <DatePickerModal
-            visible={showDatePicker}
-            value={joiningDate || dayjs().format('YYYY-MM-DD')}
-            isDark={isDark}
-            onConfirm={date => {
-              setValue('joining_date', date);
-              setShowDatePicker(false);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
-
-          {packagesError ? (
-            <View style={styles.packageAlert}>
-              <Text style={styles.packageAlertText}>{packagesError}</Text>
-            </View>
-          ) : null}
-          <Controller
-            control={control}
-            name="package_id"
-            render={({field: {onChange, value}}) => (
-              <SelectPicker
-                label={packagesLoading ? 'Loading packages…' : 'Select Package *'}
-                value={value}
-                options={packageOptions}
-                onSelect={onChange}
-                error={errors.package_id?.message}
-                isDark={isDark}
-              />
-            )}
-          />
-
-          {user?.role !== 'Trainer' && (
+        {/* Assign trainer (Admin/Manager) */}
+        {user?.role !== 'Trainer' && (
+          <>
+            <Text style={styles.fieldLabel}>Assign Trainer</Text>
             <Controller
               control={control}
               name="trainer_id"
               render={({field: {onChange, value}}) => (
                 <SelectPicker
-                  label="Assign Trainer"
+                  label="No Trainer"
                   value={value || ''}
                   options={trainerOptions}
                   onSelect={onChange}
-                  isDark={isDark}
+                  isDark={true}
                 />
               )}
             />
-          )}
-        </View>
+          </>
+        )}
 
         {/* Payment */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Payment</Text>
-
-          <Text style={[styles.fieldLabel, {color: COLORS.textSecondary}]}>
-            Payment Type *
-          </Text>
-          <Controller
-            control={control}
-            name="payment_type"
-            render={({field: {onChange, value}}) => (
-              <View style={styles.chipRow}>
-                {(['Cash', 'QR'] as const).map(type => (
-                  <Chip
-                    key={type}
-                    selected={value === type}
-                    onPress={() => onChange(type)}
-                    style={[
-                      styles.typeChip,
-                      value === type && {backgroundColor: COLORS.primary},
-                    ]}
-                    textStyle={{
-                      color: value === type ? '#FFF' : textColor,
-                      fontWeight: '600',
-                    }}
-                    icon={type === 'Cash' ? 'cash' : 'qrcode'}>
-                    {type}
-                  </Chip>
-                ))}
-              </View>
-            )}
-          />
-
-          {paymentType === 'QR' && (
-            <TouchableOpacity
-              style={styles.qrBanner}
-              onPress={() => navigation.navigate('PaymentQR')}
-              activeOpacity={0.75}>
-              <MaterialCommunityIcons name="qrcode" size={22} color={COLORS.success} />
-              <Text style={styles.qrBannerText}>Show Payment QR to student</Text>
-              <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.success} />
-            </TouchableOpacity>
+        <Text style={styles.fieldLabel}>Payment Type</Text>
+        <Controller
+          control={control}
+          name="payment_type"
+          render={({field: {onChange, value}}) => (
+            <View style={styles.chipRow}>
+              {(['Cash', 'QR'] as const).map(type => (
+                <Chip
+                  key={type}
+                  selected={value === type}
+                  onPress={() => onChange(type)}
+                  style={[styles.typeChip, value === type && {backgroundColor: COLORS.primary}]}
+                  textStyle={{
+                    color: value === type ? '#151f00' : COLORS.textPrimary,
+                    fontWeight: '600',
+                  }}
+                  icon={type === 'Cash' ? 'cash' : 'qrcode'}>
+                  {type}
+                </Chip>
+              ))}
+            </View>
           )}
+        />
 
-          <Controller
-            control={control}
-            name="amount_paid"
-            render={({field: {onChange, value}}) => (
-              <AppInput
-                label="Amount Received *"
-                value={value?.toString()}
-                onChangeText={text => {
-                  const num = parseFloat(text);
-                  onChange(isNaN(num) ? 0 : num);
-                }}
-                keyboardType="numeric"
-                error={errors.amount_paid?.message}
-              />
-            )}
-          />
-        </View>
+        {paymentType === 'QR' && (
+          <TouchableOpacity
+            style={styles.qrBanner}
+            onPress={() => navigation.navigate('PaymentQR')}
+            activeOpacity={0.75}>
+            <MaterialCommunityIcons name="qrcode" size={22} color={COLORS.success} />
+            <Text style={styles.qrBannerText}>Show Payment QR to student</Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.success} />
+          </TouchableOpacity>
+        )}
+
+        <Controller
+          control={control}
+          name="amount_paid"
+          render={({field: {onChange, value}}) => (
+            <FormField
+              label="Amount Received"
+              value={value?.toString()}
+              onChangeText={text => {
+                const num = parseFloat(text);
+                onChange(isNaN(num) ? 0 : num);
+              }}
+              keyboardType="numeric"
+              placeholder="0"
+              leftIcon="currency-inr"
+              error={errors.amount_paid?.message}
+            />
+          )}
+        />
 
         {/* Notes */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
-          <Controller
-            control={control}
-            name="notes"
-            render={({field: {onChange, value}}) => (
-              <AppInput
-                label="Notes (Optional)"
-                value={value || ''}
-                onChangeText={onChange}
-                multiline
-                numberOfLines={3}
-              />
-            )}
-          />
-        </View>
+        <Controller
+          control={control}
+          name="notes"
+          render={({field: {onChange, value}}) => (
+            <FormField
+              label="Notes"
+              value={value || ''}
+              onChangeText={onChange}
+              multiline
+              placeholder="Injuries, goals, or specific dietary requirements..."
+            />
+          )}
+        />
 
         <AppButton
-          title="Add Student"
+          title="Save Student"
           onPress={handleSubmit(onSubmit)}
           loading={loading}
           style={styles.submitBtn}
@@ -461,58 +469,48 @@ const AddStudentScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
+  container: {flex: 1, backgroundColor: COLORS.background},
   scroll: {padding: SPACING.md},
-  photoContainer: {alignSelf: 'center', marginBottom: SPACING.md},
-  photo: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: COLORS.primary,
-  },
-  photoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  photoBlock: {alignItems: 'center', marginBottom: SPACING.lg, marginTop: SPACING.sm},
+  photoRing: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: COLORS.surface,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.textSecondary,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
   },
-  photoText: {fontSize: 11, color: COLORS.placeholder, marginTop: 4},
-  photoActions: {flexDirection: 'row', justifyContent: 'center', gap: SPACING.lg, marginTop: -SPACING.sm, marginBottom: SPACING.md},
+  photo: {width: 112, height: 112, borderRadius: 56},
+  photoBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background,
+  },
+  photoLabel: {fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: SPACING.sm},
+  photoActions: {flexDirection: 'row', gap: SPACING.lg, marginTop: SPACING.sm},
   photoActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
   photoActionText: {fontSize: 12, fontWeight: '600'},
-  section: {
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    elevation: 1,
+  fieldLabel: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.medium,
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+    marginLeft: 2,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: SPACING.md,
-  },
-  dateField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: BORDER_RADIUS.sm,
-    padding: SPACING.md,
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  dateContent: {flex: 1},
-  dateLabel: {fontSize: 12, color: COLORS.textSecondary},
-  dateValue: {fontSize: 15, fontWeight: '500', marginTop: 2},
-  fieldLabel: {fontSize: 12, marginBottom: SPACING.xs, marginLeft: 4},
-  chipRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm},
+  dateRow: {flexDirection: 'row', gap: SPACING.sm},
+  dateHalf: {flex: 1},
+  chipRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md},
   typeChip: {flex: 1},
   qrBanner: {
     flexDirection: 'row',
@@ -521,10 +519,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.success + '15',
     borderWidth: 1,
     borderColor: COLORS.success + '40',
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   qrBannerText: {flex: 1, color: COLORS.success, fontWeight: '600', fontSize: 13},
   submitBtn: {marginTop: SPACING.sm},
@@ -537,7 +535,7 @@ const styles = StyleSheet.create({
   },
   packageAlert: {
     backgroundColor: COLORS.warning + '20',
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: RADIUS.sm,
     padding: SPACING.sm,
     marginBottom: SPACING.sm,
     borderLeftWidth: 3,

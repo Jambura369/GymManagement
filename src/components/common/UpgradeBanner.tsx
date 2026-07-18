@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     borderRadius: BORDER_RADIUS.sm,
   },
-  upgradeBtnText: {color: '#FFF', fontSize: 11, fontWeight: '700'},
+  upgradeBtnText: {color: '#0B0F0E', fontSize: 11, fontWeight: '700'},
   resource: {marginBottom: SPACING.xs},
   resourceHeader: {
     flexDirection: 'row',

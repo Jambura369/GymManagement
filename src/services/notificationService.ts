@@ -136,13 +136,6 @@ export const checkAndSendExpiryNotifications = async (
 
     for (const student of in7) {
       const diff = dayjs(student.membership_expiry!).startOf('day').diff(dayjs().startOf('day'), 'day');
-      await messaging().sendMessage?.({
-        data: {
-          title: `⏰ Membership Expiring Soon`,
-          body: `${student.name}'s membership expires in ${diff} day${diff === 1 ? '' : 's'}`,
-        },
-      });
-      // Insert in-app notification row
       await supabase.from('notifications').insert({
         gym_id: gymId,
         title: 'Membership Expiring Soon',

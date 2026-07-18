@@ -36,6 +36,7 @@ import AddUserScreen from '../screens/admin/AddUserScreen';
 import AddExpenseScreen from '../screens/shared/AddExpenseScreen';
 import ExpenseDetailScreen from '../screens/shared/ExpenseDetailScreen';
 import EditExpenseScreen from '../screens/shared/EditExpenseScreen';
+import SalaryListScreen from '../screens/shared/SalaryListScreen';
 import AddSalaryScreen from '../screens/shared/AddSalaryScreen';
 import EditSalaryScreen from '../screens/shared/EditSalaryScreen';
 import ExpiryListScreen from '../screens/shared/ExpiryListScreen';
@@ -44,8 +45,10 @@ import AttendanceHistoryScreen from '../screens/shared/AttendanceHistoryScreen';
 import AttendanceQRScreen from '../screens/shared/AttendanceQRScreen';
 import PaymentQRScreen from '../screens/shared/PaymentQRScreen';
 import FeatureLockedScreen from '../screens/shared/FeatureLockedScreen';
+import SubscriptionScreen from '../screens/shared/SubscriptionScreen';
 import StudentPaymentHistoryScreen from '../screens/shared/StudentPaymentHistoryScreen';
 import TrainerPaymentHistoryScreen from '../screens/shared/TrainerPaymentHistoryScreen';
+import StaffDetailScreen from '../screens/admin/StaffDetailScreen';
 import SupplementListScreen from '../screens/shared/SupplementListScreen';
 import AddSupplementScreen from '../screens/shared/AddSupplementScreen';
 import EditSupplementScreen from '../screens/shared/EditSupplementScreen';
@@ -134,6 +137,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
             <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
             <Stack.Screen name="EditExpense" component={EditExpenseScreen} />
+            <Stack.Screen name="SalaryList" component={SalaryListScreen} />
             <Stack.Screen name="AddSalary" component={AddSalaryScreen} />
             <Stack.Screen name="EditSalary" component={EditSalaryScreen} />
             <Stack.Screen name="ExpiryList" component={ExpiryListScreen} />
@@ -142,11 +146,13 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="AttendanceQR" component={AttendanceQRScreen} />
             <Stack.Screen name="PaymentQR" component={PaymentQRScreen} />
             <Stack.Screen name="StudentPaymentHistory" component={StudentPaymentHistoryScreen} />
+            <Stack.Screen name="StaffDetail" component={StaffDetailScreen} />
             <Stack.Screen name="TrainerPaymentHistory" component={TrainerPaymentHistoryScreen} />
             <Stack.Screen name="SupplementList" component={SupplementListScreen} />
             <Stack.Screen name="AddSupplement" component={AddSupplementScreen} />
             <Stack.Screen name="EditSupplement" component={EditSupplementScreen} />
             <Stack.Screen name="StockTransaction" component={StockTransactionScreen} />
+            <Stack.Screen name="Subscription" component={SubscriptionScreen} />
             <Stack.Screen name="FeatureLocked" component={FeatureLockedScreen} />
           </>
         )}

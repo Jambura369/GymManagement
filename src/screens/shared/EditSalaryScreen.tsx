@@ -22,9 +22,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import dayjs from 'dayjs';
 
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
 import {useDashboardStore} from '../../store/dashboardStore';
-import {COLORS, SPACING, BORDER_RADIUS, SALARY_PAYMENT_TYPES} from '../../constants';
+import {SALARY_PAYMENT_TYPES} from '../../constants';
+import {COLORS, RADIUS, SPACING} from '../../theme';
 import {RootStackParamList, TrainerSalary} from '../../types';
 import {fetchSalaries, updateSalary, deleteSalary} from '../../services/salaryService';
 import AppButton from '../../components/common/AppButton';
@@ -45,7 +45,6 @@ const EditSalaryScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<Route>();
   const {gym} = useAuthStore();
-  const {isDark} = useThemeStore();
 
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
@@ -54,8 +53,6 @@ const EditSalaryScreen: React.FC = () => {
   const [salary, setSalary] = useState<TrainerSalary | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
 
   const {control, handleSubmit, setValue, watch, formState: {errors}} = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -131,8 +128,8 @@ const EditSalaryScreen: React.FC = () => {
 
   if (fetching) {
     return (
-      <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <AppHeader title="Edit Salary" onBack={() => navigation.goBack()} isDark={isDark} />
+      <KeyboardAvoidingView style={[styles.container, {backgroundColor: COLORS.background}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <AppHeader title="Edit Salary" onBack={() => navigation.goBack()} isDark />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
@@ -140,24 +137,33 @@ const EditSalaryScreen: React.FC = () => {
     );
   }
 
-  if (!salary) return null;
+  if (!salary) {
+    return (
+      <KeyboardAvoidingView style={[styles.container, {backgroundColor: COLORS.background}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <AppHeader title="Edit Salary" onBack={() => navigation.goBack()} isDark />
+        <View style={styles.center}>
+          <Text style={{color: COLORS.error, textAlign: 'center'}}>Could not load salary record. Please go back and try again.</Text>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={[styles.container, {backgroundColor: COLORS.background}]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader title="Edit Salary" onBack={() => navigation.goBack()} isDark={isDark} />
+      <AppHeader title="Edit Salary" onBack={() => navigation.goBack()} isDark />
       <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         {/* Trainer Info (read-only) */}
-        <View style={[styles.trainerBadge, {backgroundColor: COLORS.trainerColor + '15'}]}>
-          <MaterialCommunityIcons name="account-tie" size={20} color={COLORS.trainerColor} />
-          <Text style={[styles.trainerName, {color: COLORS.trainerColor}]}>
+        <View style={[styles.trainerBadge, {backgroundColor: '#39FF88' + '15'}]}>
+          <MaterialCommunityIcons name="account-tie" size={20} color={'#39FF88'} />
+          <Text style={[styles.trainerName, {color: '#39FF88'}]}>
             {salary.trainer?.name || 'Trainer'}
           </Text>
         </View>
 
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Salary Details</Text>
 
           <Controller
@@ -180,7 +186,7 @@ const EditSalaryScreen: React.FC = () => {
             <MaterialCommunityIcons name="calendar" size={20} color={COLORS.textSecondary} />
             <View style={styles.dateContent}>
               <Text style={styles.dateLabel}>Payment Date</Text>
-              <Text style={[styles.dateValue, {color: textColor}]}>
+              <Text style={[styles.dateValue, {color: COLORS.textPrimary}]}>
                 {dayjs(paymentDate).format('DD MMM YYYY')}
               </Text>
             </View>
@@ -189,7 +195,7 @@ const EditSalaryScreen: React.FC = () => {
           <DatePickerModal
             visible={showDatePicker}
             value={paymentDate || dayjs().format('YYYY-MM-DD')}
-            isDark={isDark}
+            isDark={true}
             onConfirm={date => {
               setValue('payment_date', date);
               setShowDatePicker(false);
@@ -205,7 +211,7 @@ const EditSalaryScreen: React.FC = () => {
                 selected={selectedPaymentType === type}
                 onPress={() => setValue('payment_type', type as any)}
                 style={[styles.typeChip, selectedPaymentType === type && {backgroundColor: COLORS.success}]}
-                textStyle={{color: selectedPaymentType === type ? '#FFF' : textColor, fontSize: 12}}
+                textStyle={{color: selectedPaymentType === type ? '#FFF' : COLORS.textPrimary, fontSize: 12}}
                 compact>
                 {type}
               </Chip>
@@ -253,13 +259,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     marginBottom: SPACING.sm,
   },
   trainerName: {fontSize: 16, fontWeight: '700'},
-  section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
+  section: {borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: SPACING.md},
-  dateField: {flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: BORDER_RADIUS.sm, padding: SPACING.md, gap: SPACING.sm, marginBottom: SPACING.sm},
+  dateField: {flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: RADIUS.sm, padding: SPACING.md, gap: SPACING.sm, marginBottom: SPACING.sm},
   dateContent: {flex: 1},
   dateLabel: {fontSize: 12, color: COLORS.textSecondary},
   dateValue: {fontSize: 15, fontWeight: '500', marginTop: 2},

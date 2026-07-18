@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Text} from 'react-native';
+import {StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Text, ActivityIndicator} from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
@@ -7,9 +7,8 @@ import {z} from 'zod';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
-import {useThemeStore} from '../../store/themeStore';
 import {useSupplementStore} from '../../store/supplementStore';
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList} from '../../types';
 import {getSupplement} from '../../services/supplementService';
 import AppButton from '../../components/common/AppButton';
@@ -32,13 +31,12 @@ type Route = RouteProp<RootStackParamList, 'EditSupplement'>;
 const EditSupplementScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<Route>();
-  const {isDark} = useThemeStore();
   const {updateSupplement} = useSupplementStore();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
 
   const {control, handleSubmit, reset, formState: {errors}} = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -61,6 +59,8 @@ const EditSupplementScreen: React.FC = () => {
         description: result.data.description || '',
       });
       setLoaded(true);
+    } else {
+      setLoadError(result.error || 'Could not load product');
     }
   };
 
@@ -76,18 +76,34 @@ const EditSupplementScreen: React.FC = () => {
     }
   };
 
-  if (!loaded) return null;
+  if (!loaded) {
+    return (
+      <View style={[styles.container, {backgroundColor: COLORS.background}]}>
+        <AppHeader title="Edit Product" onBack={() => navigation.goBack()} isDark />
+        <View style={styles.centerFill}>
+          {loadError ? (
+            <>
+              <Text style={{color: COLORS.error, marginBottom: SPACING.md, textAlign: 'center'}}>{loadError}</Text>
+              <AppButton title="Retry" onPress={() => { setLoadError(null); loadSupplement(); }} />
+            </>
+          ) : (
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={[styles.container, {backgroundColor: COLORS.background}]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader title="Edit Supplement" onBack={() => navigation.goBack()} isDark={isDark} />
+      <AppHeader title="Edit Supplement" onBack={() => navigation.goBack()} isDark />
       <ScrollView
         contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Product Details</Text>
           <Controller control={control} name="name" render={({field: {onChange, value, onBlur}}) => (
             <AppInput label="Name *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.name?.message} />
@@ -100,7 +116,7 @@ const EditSupplementScreen: React.FC = () => {
           )} />
         </View>
 
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Pricing</Text>
           <Controller control={control} name="cost_price" render={({field: {onChange, value}}) => (
             <AppInput label="Cost Price (₹)" value={value?.toString() || ''} onChangeText={t => onChange(t ? Number(t) : undefined)} keyboardType="numeric" />
@@ -113,7 +129,7 @@ const EditSupplementScreen: React.FC = () => {
           )} />
         </View>
 
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Controller control={control} name="description" render={({field: {onChange, value}}) => (
             <AppInput label="Description" value={value || ''} onChangeText={onChange} multiline numberOfLines={3} />
           )} />
@@ -127,8 +143,9 @@ const EditSupplementScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  centerFill: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl},
   scroll: {padding: SPACING.md},
-  section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
+  section: {borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: SPACING.md},
 });
 

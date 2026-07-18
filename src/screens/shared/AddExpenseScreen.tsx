@@ -7,13 +7,14 @@ import {
   Platform,
   TouchableOpacity,
   Text,
+  TextInput,
   Image,
+  StatusBar,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
-import {Chip} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import DatePickerModal from '../../components/common/DatePickerModal';
@@ -23,18 +24,8 @@ import dayjs from 'dayjs';
 
 import {useExpenseStore} from '../../store/expenseStore';
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
-import {
-  COLORS,
-  SPACING,
-  BORDER_RADIUS,
-  EXPENSE_CATEGORIES,
-  EXPENSE_CATEGORY_COLORS,
-  EXPENSE_CATEGORY_ICONS,
-} from '../../constants';
-import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
-import AppHeader from '../../components/common/AppHeader';
+import {EXPENSE_CATEGORIES} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING} from '../../theme';
 import ImageViewerModal from '../../components/common/ImageViewerModal';
 
 const schema = z.object({
@@ -50,7 +41,6 @@ type FormData = z.infer<typeof schema>;
 const AddExpenseScreen: React.FC = () => {
   const navigation = useNavigation();
   const {user, gym} = useAuthStore();
-  const {isDark} = useThemeStore();
   const {addExpense} = useExpenseStore();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
@@ -59,16 +49,13 @@ const AddExpenseScreen: React.FC = () => {
   const [viewerVisible, setViewerVisible] = useState(false);
   const savedRef = useRef(false);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-
   const {control, handleSubmit, setValue, watch, formState: {errors, isDirty}} =
     useForm<FormData>({
       resolver: zodResolver(schema),
       defaultValues: {
         title: '',
         amount: 0,
-        category: 'Misc',
+        category: EXPENSE_CATEGORIES[0],
         expense_date: dayjs().format('YYYY-MM-DD'),
         description: '',
       },
@@ -76,6 +63,7 @@ const AddExpenseScreen: React.FC = () => {
 
   const expenseDate = watch('expense_date');
   const selectedCategory = watch('category');
+  const amountValue = watch('amount');
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', e => {
@@ -94,17 +82,17 @@ const AddExpenseScreen: React.FC = () => {
     return unsubscribe;
   }, [navigation, isDirty, receiptImage]);
 
-
   const pickReceipt = () => {
-    showImagePicker(PICKER_PRESETS.RECEIPT, uri =>
-      setReceiptImage(uri),
-    );
+    showImagePicker(PICKER_PRESETS.RECEIPT, uri => setReceiptImage(uri));
   };
 
   const onSubmit = async (data: FormData) => {
     if (!gym || !user) return;
     setLoading(true);
-    const success = await addExpense(gym.id, user.id, {...(data as any), receipt_image: receiptImage || undefined});
+    const success = await addExpense(gym.id, user.id, {
+      ...(data as any),
+      receipt_image: receiptImage || undefined,
+    });
     setLoading(false);
     if (success) {
       savedRef.current = true;
@@ -117,165 +105,172 @@ const AddExpenseScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={[styles.container, {paddingTop: insets.top}]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader title="Add Expense" onBack={() => navigation.goBack()} isDark={isDark} />
+      <StatusBar backgroundColor={COLORS.background} barStyle="light-content" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Add Expense</Text>
+        <View style={{width: 24}} />
+      </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
+        contentContainerStyle={[styles.scroll, {paddingBottom: 120 + insets.bottom}]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
-        {/* Category Selection */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Category</Text>
-          <View style={styles.categoryGrid}>
-            {EXPENSE_CATEGORIES.map(cat => {
-              const color = EXPENSE_CATEGORY_COLORS[cat];
-              const icon = EXPENSE_CATEGORY_ICONS[cat];
-              const isSelected = selectedCategory === cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.categoryItem,
-                    {
-                      backgroundColor: isSelected ? color : color + '15',
-                      borderColor: color,
-                      borderWidth: isSelected ? 2 : 1,
-                    },
-                  ]}
-                  onPress={() => setValue('category', cat)}>
-                  <MaterialCommunityIcons
-                    name={icon}
-                    size={24}
-                    color={isSelected ? '#FFF' : color}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryLabel,
-                      {color: isSelected ? '#FFF' : color},
-                    ]}>
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          {errors.category && (
-            <Text style={styles.errorText}>{errors.category.message}</Text>
-          )}
-        </View>
-
-        {/* Expense Details */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Details</Text>
-
-          <Controller
-            control={control}
-            name="title"
-            render={({field: {onChange, value, onBlur}}) => (
-              <AppInput
-                label="Expense Title *"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.title?.message}
-              />
-            )}
-          />
-
+        {/* AMOUNT */}
+        <Text style={styles.sectionLabel}>AMOUNT</Text>
+        <View style={styles.amountCard}>
+          <Text style={styles.currencySymbol}>₹</Text>
           <Controller
             control={control}
             name="amount"
             render={({field: {onChange, value}}) => (
-              <AppInput
-                label="Amount (₹) *"
-                value={value?.toString()}
-                onChangeText={text => onChange(Number(text) || 0)}
+              <TextInput
+                style={styles.amountInput}
+                value={value > 0 ? value.toString() : ''}
+                onChangeText={text => onChange(Number(text.replace(/[^0-9.]/g, '')) || 0)}
                 keyboardType="numeric"
-                error={errors.amount?.message}
-              />
-            )}
-          />
-
-          {/* Date */}
-          <TouchableOpacity
-            style={[styles.dateField, {borderColor: COLORS.border}]}
-            onPress={() => setShowDatePicker(true)}>
-            <MaterialCommunityIcons name="calendar" size={20} color={COLORS.textSecondary} />
-            <View style={styles.dateContent}>
-              <Text style={styles.dateLabel}>Expense Date</Text>
-              <Text style={[styles.dateValue, {color: textColor}]}>
-                {dayjs(expenseDate).format('DD MMM YYYY')}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <DatePickerModal
-            visible={showDatePicker}
-            value={expenseDate || dayjs().format('YYYY-MM-DD')}
-            isDark={isDark}
-            onConfirm={date => {
-              setValue('expense_date', date);
-              setShowDatePicker(false);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
-
-          <Controller
-            control={control}
-            name="description"
-            render={({field: {onChange, value}}) => (
-              <AppInput
-                label="Description (Optional)"
-                value={value || ''}
-                onChangeText={onChange}
-                multiline
-                numberOfLines={3}
+                placeholder="0.00"
+                placeholderTextColor={COLORS.textSecondary}
               />
             )}
           />
         </View>
+        {errors.amount && <Text style={styles.errorText}>{errors.amount.message}</Text>}
 
-        {/* Receipt Image */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Receipt (Optional)</Text>
-          <TouchableOpacity
-            style={styles.receiptPicker}
-            activeOpacity={0.8}
-            onPress={() => (receiptImage ? setViewerVisible(true) : pickReceipt())}>
-            {receiptImage ? (
-              <Image source={{uri: receiptImage}} style={styles.receiptPreview} resizeMode="cover" />
-            ) : (
-              <View style={styles.receiptPlaceholder}>
-                <MaterialCommunityIcons name="camera-plus-outline" size={28} color={COLORS.placeholder} />
-                <Text style={styles.receiptPlaceholderText}>Add Receipt Photo</Text>
+        {/* CATEGORY */}
+        <Text style={styles.sectionLabel}>CATEGORY</Text>
+        <View style={styles.chipGrid}>
+          {EXPENSE_CATEGORIES.map(cat => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                onPress={() => {
+                  setValue('category', cat);
+                  // Auto-fill title if empty
+                }}>
+                <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {errors.category && <Text style={styles.errorText}>{errors.category.message}</Text>}
+
+        {/* DATE */}
+        <Text style={styles.sectionLabel}>DATE</Text>
+        <TouchableOpacity
+          style={styles.dateField}
+          onPress={() => setShowDatePicker(true)}
+          activeOpacity={0.8}>
+          <MaterialCommunityIcons name="calendar-outline" size={20} color={COLORS.textSecondary} />
+          <Text style={styles.dateValue}>
+            {dayjs(expenseDate).format('MM/DD/YYYY')}
+          </Text>
+          <MaterialCommunityIcons name="calendar" size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+        <DatePickerModal
+          visible={showDatePicker}
+          value={expenseDate || dayjs().format('YYYY-MM-DD')}
+          isDark={true}
+          onConfirm={date => {
+            setValue('expense_date', date);
+            setShowDatePicker(false);
+          }}
+          onCancel={() => setShowDatePicker(false)}
+        />
+
+        {/* TITLE (vendor name) */}
+        <Text style={styles.sectionLabel}>VENDOR / TITLE</Text>
+        <Controller
+          control={control}
+          name="title"
+          render={({field: {onChange, value, onBlur}}) => (
+            <TextInput
+              style={styles.textField}
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="e.g. City Power Co."
+              placeholderTextColor={COLORS.textSecondary}
+            />
+          )}
+        />
+        {errors.title && <Text style={styles.errorText}>{errors.title.message}</Text>}
+
+        {/* RECEIPT */}
+        <Text style={styles.sectionLabel}>RECEIPT</Text>
+        <TouchableOpacity
+          style={styles.receiptArea}
+          activeOpacity={0.8}
+          onPress={() => (receiptImage ? setViewerVisible(true) : pickReceipt())}>
+          {receiptImage ? (
+            <Image source={{uri: receiptImage}} style={styles.receiptPreview} resizeMode="cover" />
+          ) : (
+            <View style={styles.receiptPlaceholder}>
+              <View style={styles.receiptIconCircle}>
+                <MaterialCommunityIcons name="camera" size={24} color={COLORS.primary} />
               </View>
-            )}
-          </TouchableOpacity>
-          {receiptImage && (
-            <View style={styles.receiptActions}>
-              <TouchableOpacity onPress={pickReceipt} style={styles.receiptActionBtn}>
-                <MaterialCommunityIcons name="image-edit" size={16} color={COLORS.primary} />
-                <Text style={[styles.receiptActionText, {color: COLORS.primary}]}>Change</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setReceiptImage(null)} style={styles.receiptActionBtn}>
-                <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
-                <Text style={[styles.receiptActionText, {color: COLORS.error}]}>Remove</Text>
-              </TouchableOpacity>
+              <Text style={styles.receiptTitle}>Upload Receipt</Text>
+              <Text style={styles.receiptSub}>JPG, PNG or PDF (Max 5MB)</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
+        {receiptImage && (
+          <View style={styles.receiptActions}>
+            <TouchableOpacity onPress={pickReceipt} style={styles.receiptActionBtn}>
+              <MaterialCommunityIcons name="image-edit" size={16} color={COLORS.primary} />
+              <Text style={[styles.receiptActionText, {color: COLORS.primary}]}>Change</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setReceiptImage(null)} style={styles.receiptActionBtn}>
+              <MaterialCommunityIcons name="close-circle" size={16} color={COLORS.error} />
+              <Text style={[styles.receiptActionText, {color: COLORS.error}]}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        <AppButton
-          title="Save Expense"
-          onPress={handleSubmit(onSubmit)}
-          loading={loading}
-          style={styles.submitBtn}
-          icon="cash-plus"
+        {/* NOTES */}
+        <Text style={styles.sectionLabel}>NOTES</Text>
+        <Controller
+          control={control}
+          name="description"
+          render={({field: {onChange, value}}) => (
+            <TextInput
+              style={[styles.textField, styles.notesField]}
+              value={value || ''}
+              onChangeText={onChange}
+              placeholder="Enter details about this expense..."
+              placeholderTextColor={COLORS.textSecondary}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          )}
         />
       </ScrollView>
+
+      {/* Save button — sticky bottom */}
+      <View style={[styles.saveBar, {paddingBottom: insets.bottom + SPACING.sm}]}>
+        <TouchableOpacity
+          style={[styles.saveBtn, loading && {opacity: 0.6}]}
+          onPress={handleSubmit(onSubmit)}
+          disabled={loading}
+          activeOpacity={0.85}>
+          <MaterialCommunityIcons name="content-save" size={20} color="#0B0F0E" />
+          <Text style={styles.saveBtnText}>
+            {loading ? 'Saving...' : 'Save Expense'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <ImageViewerModal
         visible={viewerVisible}
@@ -287,64 +282,145 @@ const AddExpenseScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
-  scroll: {padding: SPACING.md},
-  section: {
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    elevation: 1,
+  container: {flex: 1, backgroundColor: COLORS.background},
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
-  sectionTitle: {
-    fontSize: 13,
+  headerTitle: {fontSize: FONT_SIZE.lg, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary},
+
+  scroll: {paddingHorizontal: SPACING.md, paddingTop: SPACING.xs},
+
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+
+  // Amount
+  amountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  currencySymbol: {
+    fontSize: 28,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: SPACING.md,
+    color: COLORS.textSecondary,
   },
-  categoryGrid: {
+  amountInput: {
+    flex: 1,
+    fontSize: 36,
+    fontWeight: '800',
+    color: COLORS.primary,
+    padding: 0,
+  },
+  errorText: {fontSize: 12, color: COLORS.error, marginTop: 4},
+
+  // Category chips
+  chipGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.sm,
   },
-  categoryItem: {
-    width: '30%',
-    alignItems: 'center',
-    padding: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-    gap: 4,
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.pill,
+    backgroundColor: '#272b2a',
   },
-  categoryLabel: {fontSize: 11, fontWeight: '600', textAlign: 'center'},
-  errorText: {color: COLORS.error, fontSize: 12, marginTop: 4},
+  categoryChipActive: {backgroundColor: COLORS.primary},
+  categoryChipText: {fontSize: 13, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textSecondary},
+  categoryChipTextActive: {color: '#0B0F0E', fontWeight: FONT_WEIGHT.bold},
+
+  // Date
   dateField: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: BORDER_RADIUS.sm,
-    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 16,
     gap: SPACING.sm,
-    marginBottom: SPACING.sm,
   },
-  dateContent: {flex: 1},
-  dateLabel: {fontSize: 12, color: COLORS.textSecondary},
-  dateValue: {fontSize: 15, fontWeight: '500', marginTop: 2},
-  submitBtn: {marginTop: SPACING.sm},
-  receiptPicker: {borderRadius: BORDER_RADIUS.md, overflow: 'hidden'},
-  receiptPreview: {width: '100%', height: 160, borderRadius: BORDER_RADIUS.md},
+  dateValue: {flex: 1, fontSize: 15, fontWeight: FONT_WEIGHT.medium, color: COLORS.textPrimary},
+
+  // Text fields
+  textField: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 16,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  notesField: {
+    height: 110,
+    paddingTop: SPACING.md,
+  },
+
+  // Receipt
+  receiptArea: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+  },
+  receiptPreview: {width: '100%', height: 160},
   receiptPlaceholder: {
-    height: 100,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    borderStyle: 'dashed',
+    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: SPACING.sm,
+    borderWidth: 2,
+    borderColor: '#2a2f2d',
+    borderStyle: 'dashed',
+    borderRadius: RADIUS.lg,
   },
-  receiptPlaceholderText: {fontSize: 12, color: COLORS.placeholder},
-  receiptActions: {flexDirection: 'row', gap: SPACING.lg, marginTop: SPACING.sm},
+  receiptIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#272b2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  receiptTitle: {fontSize: 15, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textPrimary},
+  receiptSub: {fontSize: 12, color: COLORS.textSecondary},
+  receiptActions: {
+    flexDirection: 'row',
+    gap: SPACING.lg,
+    marginTop: SPACING.sm,
+  },
   receiptActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
-  receiptActionText: {fontSize: 12, fontWeight: '600'},
+  receiptActionText: {fontSize: 12, fontWeight: FONT_WEIGHT.semiBold},
+
+  // Save bar
+  saveBar: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#2a2f2d',
+  },
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.pill,
+    paddingVertical: 16,
+  },
+  saveBtnText: {fontSize: 16, fontWeight: FONT_WEIGHT.bold, color: '#0B0F0E'},
 });
 
 export default AddExpenseScreen;

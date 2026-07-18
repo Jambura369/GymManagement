@@ -17,8 +17,7 @@ import dayjs from 'dayjs';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
-import {BORDER_RADIUS, COLORS, SPACING} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList, Student} from '../../types';
 import {fetchStudents} from '../../services/studentService';
 import {
@@ -34,7 +33,6 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 const AttendanceScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {user, gym} = useAuthStore();
-  const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<'check_in' | 'today'>('check_in');
@@ -45,10 +43,6 @@ const AttendanceScreen: React.FC = () => {
   const [loadingToday, setLoadingToday] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.cardDark : COLORS.card;
-  const inputBg = isDark ? COLORS.cardDark : '#F5F5F5';
 
   const loadStudents = useCallback(async () => {
     if (!gym) return;
@@ -156,7 +150,7 @@ const AttendanceScreen: React.FC = () => {
     const isProcessing = processingId === item.id;
 
     return (
-      <Card style={[styles.card, {backgroundColor: cardBg}]}>
+      <Card style={[styles.card, {backgroundColor: COLORS.surface}]}>
         <Card.Content style={styles.cardContent}>
           <Avatar.Text
             size={42}
@@ -175,7 +169,7 @@ const AttendanceScreen: React.FC = () => {
             }}
           />
           <View style={styles.info}>
-            <Text style={[styles.name, {color: textColor}]} numberOfLines={1}>
+            <Text style={[styles.name, {color: COLORS.textPrimary}]} numberOfLines={1}>
               {item.name}
             </Text>
             <Text style={[styles.phone, {color: COLORS.textSecondary}]}>{item.phone}</Text>
@@ -221,8 +215,8 @@ const AttendanceScreen: React.FC = () => {
             <TouchableOpacity
               style={[styles.actionChip, {backgroundColor: COLORS.primary}]}
               onPress={() => handleCheckIn(item)}>
-              <MaterialCommunityIcons name="login" size={13} color="#FFF" />
-              <Text style={[styles.actionText, {color: '#FFF'}]}>Check In</Text>
+              <MaterialCommunityIcons name="login" size={13} color="#0B0F0E" />
+              <Text style={[styles.actionText, {color: '#0B0F0E'}]}>Check In</Text>
             </TouchableOpacity>
           )}
         </Card.Content>
@@ -234,7 +228,7 @@ const AttendanceScreen: React.FC = () => {
     const student = item.student;
     if (!student) return null;
     return (
-      <Card style={[styles.card, {backgroundColor: cardBg}]}>
+      <Card style={[styles.card, {backgroundColor: COLORS.surface}]}>
         <Card.Content style={styles.cardContent}>
           <Avatar.Text
             size={42}
@@ -243,7 +237,7 @@ const AttendanceScreen: React.FC = () => {
             labelStyle={{color: COLORS.success, fontSize: 14, fontWeight: '700'}}
           />
           <View style={styles.info}>
-            <Text style={[styles.name, {color: textColor}]} numberOfLines={1}>
+            <Text style={[styles.name, {color: COLORS.textPrimary}]} numberOfLines={1}>
               {student.name}
             </Text>
             <Text style={[styles.phone, {color: COLORS.textSecondary}]}>{student.phone}</Text>
@@ -267,18 +261,18 @@ const AttendanceScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, {backgroundColor: bgColor}]}>
+    <View style={[styles.container, {backgroundColor: COLORS.background}]}>
       {/* Header */}
       <View
         style={[
           styles.header,
-          {paddingTop: insets.top + SPACING.sm, backgroundColor: isDark ? COLORS.cardDark : COLORS.card},
+          {paddingTop: insets.top + SPACING.sm, backgroundColor: COLORS.surface},
         ]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
+          <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
-          <Text style={[styles.title, {color: textColor}]}>Attendance</Text>
+          <Text style={[styles.title, {color: COLORS.textPrimary}]}>Attendance</Text>
           <Text style={[styles.subtitle, {color: COLORS.textSecondary}]}>
             {dayjs().format('ddd, DD MMM YYYY')}
           </Text>
@@ -297,7 +291,7 @@ const AttendanceScreen: React.FC = () => {
       </View>
 
       {/* Tabs */}
-      <View style={[styles.tabRow, {backgroundColor: isDark ? COLORS.cardDark : COLORS.card}]}>
+      <View style={[styles.tabRow, {backgroundColor: COLORS.surface}]}>
         <TouchableOpacity
           style={[styles.tab, tab === 'check_in' && {borderBottomColor: COLORS.primary, borderBottomWidth: 2}]}
           onPress={() => setTab('check_in')}>
@@ -317,11 +311,11 @@ const AttendanceScreen: React.FC = () => {
       {tab === 'check_in' ? (
         <>
           {/* Search */}
-          <View style={[styles.searchRow, {backgroundColor: bgColor}]}>
-            <View style={[styles.searchInput, {backgroundColor: inputBg}]}>
+          <View style={[styles.searchRow, {backgroundColor: COLORS.background}]}>
+            <View style={[styles.searchInput, {backgroundColor: COLORS.surfaceElevated}]}>
               <MaterialCommunityIcons name="magnify" size={18} color={COLORS.textSecondary} />
               <TextInput
-                style={[styles.searchText, {color: textColor}]}
+                style={[styles.searchText, {color: COLORS.textPrimary}]}
                 placeholder="Search by name or phone..."
                 placeholderTextColor={COLORS.textSecondary}
                 value={search}
@@ -364,7 +358,7 @@ const AttendanceScreen: React.FC = () => {
           ) : todayRecords.length === 0 ? (
             <View style={styles.center}>
               <MaterialCommunityIcons name="calendar-blank" size={56} color={COLORS.textSecondary} />
-              <Text style={[styles.emptyTitle, {color: textColor}]}>No check-ins yet</Text>
+              <Text style={[styles.emptyTitle, {color: COLORS.textPrimary}]}>No check-ins yet</Text>
               <Text style={[styles.emptyText, {color: COLORS.textSecondary}]}>
                 No members have checked in today
               </Text>
@@ -421,11 +415,11 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
   },
   searchText: {flex: 1, fontSize: 14, padding: 0},
   listContent: {paddingHorizontal: SPACING.md, paddingTop: SPACING.xs},
-  card: {marginBottom: SPACING.sm, borderRadius: BORDER_RADIUS.md, elevation: 1},
+  card: {marginBottom: SPACING.sm, borderRadius: RADIUS.md, elevation: 1},
   cardContent: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.xs},
   info: {flex: 1, minWidth: 0},
   name: {fontSize: 14, fontWeight: '700'},

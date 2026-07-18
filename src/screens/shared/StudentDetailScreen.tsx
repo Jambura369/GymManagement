@@ -5,26 +5,24 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Linking,
+  StatusBar,
 } from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {Card, Menu} from 'react-native-paper';
+import {Menu} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 import dayjs from 'dayjs';
 
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
 import {useStudentStore} from '../../store/studentStore';
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList, Student} from '../../types';
 import {getStudent} from '../../services/studentService';
-import AppHeader from '../../components/common/AppHeader';
-import StatusBadge from '../../components/common/StatusBadge';
+import {fetchPaymentsByStudent} from '../../services/paymentService';
+import {Payment} from '../../types';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import AppButton from '../../components/common/AppButton';
 import AvatarWithFallback from '../../components/common/AvatarWithFallback';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'StudentDetail'>;
@@ -34,20 +32,15 @@ const StudentDetailScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const {user} = useAuthStore();
-  const {isDark} = useThemeStore();
   const {deleteStudent} = useStudentStore();
-
   const insets = useSafeAreaInsets();
+
   const [student, setStudent] = useState<Student | null>(null);
+  const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.cardDark : COLORS.card;
-  const subColor = isDark ? COLORS.textSecondaryDark : COLORS.textSecondary;
 
   useEffect(() => {
     loadStudent();
@@ -55,8 +48,12 @@ const StudentDetailScreen: React.FC = () => {
 
   const loadStudent = async () => {
     setLoading(true);
-    const result = await getStudent(route.params.studentId);
-    if (result.data) setStudent(result.data);
+    const [studentRes, paymentsRes] = await Promise.all([
+      getStudent(route.params.studentId),
+      fetchPaymentsByStudent(route.params.studentId, 1),
+    ]);
+    if (studentRes.data) setStudent(studentRes.data);
+    if (paymentsRes.data) setRecentPayments(paymentsRes.data.data.slice(0, 3));
     setLoading(false);
   };
 
@@ -74,290 +71,255 @@ const StudentDetailScreen: React.FC = () => {
     }
   };
 
-  if (!student && loading) {
+  if (loading || !student) {
     return (
-      <View style={[styles.container, {backgroundColor: bgColor}]}>
-        <AppHeader title="Student Detail" onBack={() => navigation.goBack()} isDark={isDark} />
+      <View style={[styles.container, {paddingTop: insets.top}]}>
+        <StatusBar backgroundColor={COLORS.background} barStyle="light-content" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Student Detail</Text>
+          <View style={{width: 24}} />
+        </View>
       </View>
     );
   }
-
-  if (!student) return null;
 
   const daysLeft = student.membership_expiry
     ? dayjs(student.membership_expiry).diff(dayjs(), 'day')
     : null;
   const isExpired = daysLeft !== null && daysLeft < 0;
+  const memberSince = dayjs(student.joining_date).format('MMM YYYY');
 
-  const InfoRow = ({label, value, icon, first}: {label: string; value: string; icon: string; first?: boolean}) => (
-    <View style={[styles.infoRow, !first && styles.infoRowBorder]}>
-      <MaterialCommunityIcons name={icon} size={18} color={COLORS.primary} />
-      <View style={styles.infoContent}>
-        <Text style={[styles.infoLabel, {color: subColor}]}>{label}</Text>
-        <Text style={[styles.infoValue, {color: textColor}]}>{value}</Text>
-      </View>
-    </View>
-  );
+  // Progress bar: percentage of membership used
+  const progressPercent = (() => {
+    if (!student.package?.duration_days || !student.joining_date || daysLeft === null) return 0;
+    const total = student.package.duration_days;
+    const used = total - Math.max(daysLeft, 0);
+    return Math.min(Math.max(used / total, 0), 1);
+  })();
+
+  const statusColor = isExpired
+    ? COLORS.error
+    : daysLeft !== null && daysLeft <= 7
+    ? COLORS.warning
+    : COLORS.success;
+
+  const isVip = student.package?.type === 'Yearly' || student.package?.type === 'Special Category';
 
   return (
-    <View style={[styles.container, {backgroundColor: bgColor}]}>
-      <AppHeader
-        title="Student Detail"
-        onBack={() => navigation.goBack()}
-        isDark={isDark}
-        rightComponent={
-          user?.role !== 'Trainer' ? (
-            <Menu
-              visible={menuVisible}
-              onDismiss={() => setMenuVisible(false)}
-              anchor={
-                <TouchableOpacity onPress={() => setMenuVisible(true)}>
-                  <MaterialCommunityIcons
-                    name="dots-vertical"
-                    size={24}
-                    color={textColor}
-                  />
-                </TouchableOpacity>
-              }>
-              <Menu.Item
-                onPress={() => {
-                  setMenuVisible(false);
-                  navigation.navigate('EditStudent', {studentId: student.id});
-                }}
-                title="Edit Student"
-                leadingIcon="pencil"
-              />
-              <Menu.Item
-                onPress={() => {
-                  setMenuVisible(false);
-                  setDeleteDialog(true);
-                }}
-                title="Delete Student"
-                leadingIcon="delete"
-                titleStyle={{color: COLORS.error}}
-              />
-            </Menu>
-          ) : null
-        }
-      />
+    <View style={[styles.container, {paddingTop: insets.top}]}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="light-content" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Student Detail</Text>
+        {user?.role !== 'Trainer' ? (
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={
+              <TouchableOpacity onPress={() => setMenuVisible(true)} hitSlop={8}>
+                <MaterialCommunityIcons name="dots-vertical" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            }>
+            <Menu.Item
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate('EditStudent', {studentId: student.id});
+              }}
+              title="Edit Student"
+              leadingIcon="pencil"
+            />
+            <Menu.Item
+              onPress={() => {
+                setMenuVisible(false);
+                setDeleteDialog(true);
+              }}
+              title="Delete Student"
+              leadingIcon="delete"
+              titleStyle={{color: COLORS.error}}
+            />
+          </Menu>
+        ) : (
+          <View style={{width: 24}} />
+        )}
+      </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
-        <Card style={[styles.profileCard, {backgroundColor: cardBg}]}>
-          <Card.Content style={styles.profileContent}>
-            <AvatarWithFallback uri={student.image} name={student.name} size={80} />
-            <Text style={[styles.studentName, {color: textColor}]}>
-              {student.name}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scroll, {paddingBottom: 100 + insets.bottom}]}>
+
+        {/* Avatar + Name hero */}
+        <View style={styles.heroSection}>
+          <View style={[styles.avatarRing, {borderColor: statusColor + '80'}]}>
+            <AvatarWithFallback uri={student.image} name={student.name} size={80} viewable />
+          </View>
+          <View style={[styles.statusBadge, {backgroundColor: isExpired ? '#93000a' : daysLeft !== null && daysLeft <= 7 ? '#eab308' : '#63ff95'}]}>
+            <Text style={[styles.statusBadgeText, {color: isExpired ? '#ffb4ab' : daysLeft !== null && daysLeft <= 7 ? '#000' : '#003919'}]}>
+              {isExpired ? 'Expired' : daysLeft !== null && daysLeft <= 7 ? 'Expiring' : 'Active'}
             </Text>
-            <View style={styles.badgeRow}>
-              <StatusBadge
-                status={
-                  student.is_active
-                    ? 'Active'
-                    : student.verification_status === 'Pending'
-                    ? 'Pending'
-                    : student.verification_status === 'Rejected'
-                    ? 'Rejected'
-                    : 'Inactive'
-                }
-              />
-              {student.package && (
-                <View style={styles.categoryBadge}>
-                  <MaterialCommunityIcons
-                    name="package-variant"
-                    size={11}
-                    color={COLORS.primary}
-                  />
-                  <Text style={styles.categoryText}>
-                    {student.package.name}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Quick Actions */}
-            <View style={styles.quickActions}>
-              <TouchableOpacity
-                style={[styles.actionBtn, {backgroundColor: COLORS.success + '20'}]}
-                onPress={() => Linking.openURL(`tel:${student.phone}`)}>
-                <MaterialCommunityIcons name="phone" size={20} color={COLORS.success} />
-                <Text style={[styles.actionText, {color: COLORS.success}]}>Call</Text>
-              </TouchableOpacity>
-              {student.email && (
-                <TouchableOpacity
-                  style={[styles.actionBtn, {backgroundColor: COLORS.info + '20'}]}
-                  onPress={() => Linking.openURL(`mailto:${student.email}`)}>
-                  <MaterialCommunityIcons name="email" size={20} color={COLORS.info} />
-                  <Text style={[styles.actionText, {color: COLORS.info}]}>Email</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.actionBtn, {backgroundColor: '#25D36620'}]}
-                onPress={() => Linking.openURL(`https://wa.me/${student.phone}`)}>
-                <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
-                <Text style={[styles.actionText, {color: '#25D366'}]}>WhatsApp</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, {backgroundColor: COLORS.primary + '20'}]}
-                onPress={() =>
-                  navigation.navigate('StudentPaymentHistory', {
-                    studentId: student.id,
-                    studentName: student.name,
-                  })
-                }>
-                <MaterialCommunityIcons name="receipt-text-outline" size={20} color={COLORS.primary} />
-                <Text style={[styles.actionText, {color: COLORS.primary}]}>History</Text>
-              </TouchableOpacity>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Membership Info */}
-        <Card style={[styles.card, {backgroundColor: cardBg}]}>
-          <Card.Title title="Membership" titleVariant="titleMedium" />
-          <Card.Content>
-            {student.membership_expiry && (
-              <View
-                style={[
-                  styles.expiryAlert,
-                  {
-                    backgroundColor: isExpired
-                      ? COLORS.error + '15'
-                      : (daysLeft ?? 999) <= 7
-                      ? COLORS.warning + '15'
-                      : COLORS.success + '15',
-                  },
-                ]}>
-                <MaterialCommunityIcons
-                  name={isExpired ? 'calendar-remove' : 'calendar-check'}
-                  size={20}
-                  color={
-                    isExpired
-                      ? COLORS.error
-                      : (daysLeft ?? 999) <= 7
-                      ? COLORS.warning
-                      : COLORS.success
-                  }
-                />
-                <Text
-                  style={[
-                    styles.expiryText,
-                    {
-                      color: isExpired
-                        ? COLORS.error
-                        : (daysLeft ?? 999) <= 7
-                        ? COLORS.warning
-                        : COLORS.success,
-                    },
-                  ]}>
-                  {isExpired
-                    ? `Expired ${Math.abs(daysLeft!)} days ago`
-                    : daysLeft === 0
-                    ? 'Expires today!'
-                    : `Expires in ${daysLeft} days`}
-                </Text>
-              </View>
-            )}
-            <InfoRow
-              label="Joining Date"
-              value={dayjs(student.joining_date).format('DD MMM YYYY')}
-              icon="calendar-today"
-              first
-            />
-            <InfoRow
-              label="Expiry Date"
-              value={
-                student.membership_expiry
-                  ? dayjs(student.membership_expiry).format('DD MMM YYYY')
-                  : 'N/A'
-              }
-              icon="calendar-end"
-            />
-            <InfoRow
-              label="Package"
-              value={
-                student.package
-                  ? `${student.package.name} (${student.package.type})`
-                  : 'N/A'
-              }
-              icon="package-variant"
-            />
-            <InfoRow
-              label="Amount Paid"
-              value={`₹${student.amount_paid ?? 0}`}
-              icon="cash"
-            />
-            <InfoRow
-              label="Payment Method"
-              value={student.payment_type ?? 'N/A'}
-              icon="credit-card"
-            />
-          </Card.Content>
-        </Card>
+          </View>
+          <Text style={styles.heroName}>{student.name}</Text>
+          <Text style={styles.heroSince}>Member since {memberSince}</Text>
+        </View>
 
         {/* Contact Info */}
-        <Card style={[styles.card, {backgroundColor: cardBg}]}>
-          <Card.Title title="Contact Info" titleVariant="titleMedium" />
-          <Card.Content>
-            <InfoRow label="Phone" value={student.phone} icon="phone" first />
-            <InfoRow
-              label="Email"
-              value={student.email || 'N/A'}
-              icon="email"
-            />
-          </Card.Content>
-        </Card>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="lightning-bolt" size={14} color={COLORS.primary} />
+            <Text style={styles.sectionTitle}>CONTACT INFO</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="phone" size={18} color={COLORS.textSecondary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Phone</Text>
+              <Text style={styles.infoValue}>{student.phone}</Text>
+            </View>
+          </View>
+          {student.email ? (
+            <View style={[styles.infoRow, styles.infoRowBorder]}>
+              <MaterialCommunityIcons name="email-outline" size={18} color={COLORS.textSecondary} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Email</Text>
+                <Text style={styles.infoValue}>{student.email}</Text>
+              </View>
+            </View>
+          ) : null}
+          {student.trainer ? (
+            <View style={[styles.infoRow, styles.infoRowBorder]}>
+              <MaterialCommunityIcons name="account-tie" size={18} color={COLORS.textSecondary} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Trainer</Text>
+                <Text style={styles.infoValue}>{student.trainer.name}</Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
 
-        {/* Trainer */}
-        {student.trainer && (
-          <Card style={[styles.card, {backgroundColor: cardBg}]}>
-            <Card.Title title="Assigned Trainer" titleVariant="titleMedium" />
-            <Card.Content>
-              <InfoRow label="Name" value={student.trainer.name} icon="account-tie" first />
-              <InfoRow label="Phone" value={student.trainer.phone || 'N/A'} icon="phone" />
-            </Card.Content>
-          </Card>
-        )}
+        {/* Membership Info */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="trophy-outline" size={14} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>MEMBERSHIP INFO</Text>
+            </View>
+            {isVip && (
+              <View style={styles.vipBadge}>
+                <Text style={styles.vipText}>VIP</Text>
+              </View>
+            )}
+          </View>
 
-        {/* Verification Status */}
-        <Card style={[styles.card, {backgroundColor: cardBg}]}>
-          <Card.Title title="Verification" titleVariant="titleMedium" />
-          <Card.Content>
-            <InfoRow
-              label="Status"
-              value={student.verification_status}
-              icon="shield-check"
-              first
-            />
-          </Card.Content>
-        </Card>
+          {student.package ? (
+            <>
+              <Text style={styles.planName}>{student.package.name}</Text>
+              {student.package.description ? (
+                <Text style={styles.planDesc}>{student.package.description}</Text>
+              ) : null}
+              <View style={styles.renewalRow}>
+                <Text style={styles.infoLabel}>Renewal Date</Text>
+                <Text style={styles.infoValue}>
+                  {student.membership_expiry
+                    ? dayjs(student.membership_expiry).format('MMM DD, YYYY')
+                    : 'N/A'}
+                </Text>
+              </View>
+              {/* Progress bar */}
+              <View style={styles.progressBg}>
+                <View style={[styles.progressFill, {width: `${progressPercent * 100}%`}]} />
+              </View>
+              <Text style={styles.daysRemaining}>
+                {daysLeft === null
+                  ? ''
+                  : isExpired
+                  ? `Expired ${Math.abs(daysLeft)} days ago`
+                  : daysLeft === 0
+                  ? 'Expires today'
+                  : `${daysLeft} days remaining`}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.noPackage}>No active package</Text>
+          )}
+        </View>
 
-        {student.notes && (
-          <Card style={[styles.card, {backgroundColor: cardBg}]}>
-            <Card.Title title="Notes" titleVariant="titleMedium" />
-            <Card.Content>
-              <Text style={{color: textColor}}>{student.notes}</Text>
-            </Card.Content>
-          </Card>
-        )}
+        {/* Payment History preview */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="receipt" size={14} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>PAYMENT HISTORY</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('StudentPaymentHistory', {
+                  studentId: student.id,
+                  studentName: student.name,
+                })
+              }>
+              <Text style={styles.viewAll}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          {recentPayments.length === 0 ? (
+            <Text style={styles.paymentHint}>No payments recorded yet</Text>
+          ) : (
+            recentPayments.map((p, i) => (
+              <View key={p.id} style={[styles.paymentRow, i > 0 && styles.paymentRowBorder]}>
+                <MaterialCommunityIcons name="checkbox-marked-circle" size={32} color={COLORS.success} />
+                <View style={styles.paymentInfo}>
+                  <Text style={styles.paymentName} numberOfLines={1}>
+                    {p.package?.name || 'Membership Payment'}
+                  </Text>
+                  <Text style={styles.paymentDate}>
+                    {dayjs(p.payment_date).format('MMM DD, YYYY')}
+                  </Text>
+                </View>
+                <Text style={styles.paymentAmount}>
+                  ₹{Number(p.amount).toLocaleString('en-IN')}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
+
+        {student.notes ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="note-text-outline" size={14} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>NOTES</Text>
+            </View>
+            <Text style={styles.notes}>{student.notes}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
-      {/* Renew Membership — sticky bottom action */}
-      <View style={[styles.renewBar, {paddingBottom: insets.bottom + SPACING.sm}]}>
-        <AppButton
-          title="Renew Membership"
-          onPress={() => navigation.navigate('RenewStudent', {studentId: student.id})}
-          icon="refresh"
+      {/* Bottom action bar */}
+      <View style={[styles.bottomBar, {paddingBottom: insets.bottom + SPACING.sm}]}>
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={() => navigation.navigate('EditStudent', {studentId: student.id})}
+          activeOpacity={0.7}>
+          <MaterialCommunityIcons name="pencil-outline" size={18} color={COLORS.textPrimary} />
+          <Text style={styles.editBtnText}>Edit Profile</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.renewBtn}
-        />
+          onPress={() => navigation.navigate('RenewStudent', {studentId: student.id})}
+          activeOpacity={0.85}>
+          <MaterialCommunityIcons name="autorenew" size={18} color="#0B0F0E" />
+          <Text style={styles.renewBtnText}>Renew Membership</Text>
+        </TouchableOpacity>
       </View>
 
       <ConfirmDialog
         visible={deleteDialog}
         title="Delete Student"
-        message={`Are you sure you want to delete ${student.name}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ${student.name}? This cannot be undone.`}
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteDialog(false)}
@@ -369,63 +331,165 @@ const StudentDetailScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
-  renewBar: {
+  container: {flex: 1, backgroundColor: COLORS.background},
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.border,
+    paddingVertical: SPACING.md,
   },
-  renewBtn: {marginBottom: 0},
-  content: {padding: SPACING.md, paddingBottom: SPACING.md},
-  profileCard: {borderRadius: BORDER_RADIUS.xl, marginBottom: SPACING.md, elevation: 3},
-  profileContent: {alignItems: 'center', paddingVertical: SPACING.lg},
-  avatar: {width: 80, height: 80, borderRadius: 40, marginBottom: SPACING.sm},
-  studentName: {fontSize: 22, fontWeight: '700', marginTop: SPACING.sm, marginBottom: SPACING.sm},
-  badgeRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md},
-  categoryBadge: {
+  headerTitle: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.primary,
+  },
+  scroll: {paddingHorizontal: SPACING.md},
+
+  // Hero
+  heroSection: {alignItems: 'center', paddingVertical: SPACING.lg, position: 'relative'},
+  avatarRing: {
+    padding: 3,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: COLORS.primary + '60',
+  },
+  statusBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: RADIUS.pill,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  statusBadgeText: {fontSize: 12, fontWeight: FONT_WEIGHT.bold},
+  heroName: {
+    fontSize: 26,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    marginTop: 4,
+  },
+  heroSince: {fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 4},
+
+  // Section
+  section: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  sectionHeader: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: SPACING.sm},
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
   },
-  categoryText: {fontSize: 12, fontWeight: '600', color: COLORS.primary},
-  quickActions: {flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.sm},
-  actionBtn: {
-    alignItems: 'center',
-    padding: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-    minWidth: 64,
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textSecondary,
+    letterSpacing: 0.8,
   },
-  actionText: {fontSize: 11, fontWeight: '600', marginTop: 4},
-  card: {borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, elevation: 2},
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.xs,
-  },
-  infoRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.border,
-  },
+  viewAll: {fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.primary},
+
+  // Info rows
+  infoRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: 6},
+  infoRowBorder: {borderTopWidth: 1, borderTopColor: COLORS.border},
   infoContent: {flex: 1},
-  infoLabel: {fontSize: 11},
-  infoValue: {fontSize: 14, fontWeight: '600', marginTop: 2},
-  expiryAlert: {
+  infoLabel: {fontSize: 11, color: COLORS.textSecondary},
+  infoValue: {fontSize: 14, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textPrimary, marginTop: 2},
+
+  // VIP
+  vipBadge: {
+    backgroundColor: COLORS.primary + '25',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '60',
+  },
+  vipText: {fontSize: 10, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary, letterSpacing: 1},
+
+  // Plan
+  planName: {fontSize: 20, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: 3},
+  planDesc: {fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginBottom: SPACING.sm},
+  noPackage: {fontSize: FONT_SIZE.sm, color: COLORS.textSecondary},
+
+  renewalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+
+  // Progress bar
+  progressBg: {
+    height: 6,
+    backgroundColor: COLORS.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressFill: {
+    height: 6,
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+  },
+  daysRemaining: {fontSize: 12, color: COLORS.primary, fontWeight: FONT_WEIGHT.semiBold},
+
+  paymentHint: {fontSize: FONT_SIZE.sm, color: COLORS.textSecondary},
+  paymentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    padding: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
-  expiryText: {fontSize: 13, fontWeight: '600'},
+  paymentRowBorder: {borderTopWidth: 1, borderTopColor: COLORS.border},
+  paymentInfo: {flex: 1},
+  paymentName: {fontSize: 13, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textPrimary},
+  paymentDate: {fontSize: 11, color: COLORS.textSecondary, marginTop: 2},
+  paymentAmount: {fontSize: 14, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary},
+  notes: {fontSize: FONT_SIZE.sm, color: COLORS.textPrimary, lineHeight: 20},
+
+  // Bottom bar
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  editBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: 'transparent',
+  },
+  editBtnText: {fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.semiBold, color: COLORS.textPrimary},
+  renewBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.primary,
+  },
+  renewBtnText: {fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: '#0B0F0E'},
 });
 
 export default StudentDetailScreen;

@@ -493,6 +493,7 @@ export type RootStackParamList = {
   AddExpense: undefined;
   ExpenseDetail: { expenseId: string };
   EditExpense: { expenseId: string };
+  SalaryList: undefined;
   AddSalary: undefined;
   EditSalary: {salaryId: string};
   ExpiryList: {trainerId?: string; expiryFilter?: 'expiring_3' | 'expiring_7' | 'expired'};
@@ -510,11 +511,13 @@ export type RootStackParamList = {
   AttendanceQR: undefined;
   AttendanceHistory: {studentId: string; studentName: string};
   StudentPaymentHistory: {studentId: string; studentName: string};
+  StaffDetail: {user: User};
   TrainerPaymentHistory: {trainerId: string; trainerName: string};
   SupplementList: undefined;
   AddSupplement: undefined;
   EditSupplement: {supplementId: string};
   StockTransaction: {supplementId: string; mode: 'add' | 'sell'};
+  Subscription: undefined;
   FeatureLocked: {
     featureName: string;
     featureIcon: string;

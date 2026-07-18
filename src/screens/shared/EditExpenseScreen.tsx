@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Text,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
@@ -21,8 +22,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 
 import {useExpenseStore} from '../../store/expenseStore';
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS, EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS, EXPENSE_CATEGORY_ICONS, SUPABASE_BUCKETS} from '../../constants';
+import {EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS, EXPENSE_CATEGORY_ICONS, SUPABASE_BUCKETS} from '../../constants';
+import {COLORS, RADIUS, SPACING} from '../../theme';
 import {RootStackParamList, Expense} from '../../types';
 import {supabase} from '../../supabase/client';
 import {uploadImage} from '../../services/storageService';
@@ -45,19 +46,17 @@ type Route = RouteProp<RootStackParamList, 'EditExpense'>;
 const EditExpenseScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<Route>();
-  const {isDark} = useThemeStore();
   const {updateExpense} = useExpenseStore();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [originalReceipt, setOriginalReceipt] = useState<string | null>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [imgError, setImgError] = useState(false);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
 
   const {control, handleSubmit, setValue, watch, reset, formState: {errors}} =
     useForm<FormData>({resolver: zodResolver(schema)});
@@ -89,6 +88,8 @@ const EditExpenseScreen: React.FC = () => {
       setOriginalReceipt(data.receipt_image || null);
       setImgError(false);
       setInitialLoaded(true);
+    } else {
+      setLoadError(error?.message || 'Could not load expense');
     }
   };
 
@@ -130,20 +131,36 @@ const EditExpenseScreen: React.FC = () => {
     }
   };
 
-  if (!initialLoaded) return null;
+  if (!initialLoaded) {
+    return (
+      <View style={[styles.container, {backgroundColor: COLORS.background}]}>
+        <AppHeader title="Edit Expense" onBack={() => navigation.goBack()} isDark />
+        <View style={styles.centerFill}>
+          {loadError ? (
+            <>
+              <Text style={{color: COLORS.error, marginBottom: SPACING.md, textAlign: 'center'}}>{loadError}</Text>
+              <AppButton title="Retry" onPress={() => { setLoadError(null); loadExpense(); }} />
+            </>
+          ) : (
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={[styles.container, {backgroundColor: COLORS.background}]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader title="Edit Expense" onBack={() => navigation.goBack()} isDark={isDark} />
+      <AppHeader title="Edit Expense" onBack={() => navigation.goBack()} isDark />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Category</Text>
           <View style={styles.categoryGrid}>
             {EXPENSE_CATEGORIES.map(cat => {
@@ -170,7 +187,7 @@ const EditExpenseScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Controller
             control={control}
             name="title"
@@ -189,13 +206,13 @@ const EditExpenseScreen: React.FC = () => {
             <MaterialCommunityIcons name="calendar" size={20} color={COLORS.textSecondary} />
             <View style={styles.dateContent}>
               <Text style={styles.dateLabel}>Date</Text>
-              <Text style={[styles.dateValue, {color: textColor}]}>{dayjs(expenseDate).format('DD MMM YYYY')}</Text>
+              <Text style={[styles.dateValue, {color: COLORS.textPrimary}]}>{dayjs(expenseDate).format('DD MMM YYYY')}</Text>
             </View>
           </TouchableOpacity>
           <DatePickerModal
             visible={showDatePicker}
             value={expenseDate || dayjs().format('YYYY-MM-DD')}
-            isDark={isDark}
+            isDark={true}
             onConfirm={date => {
               setValue('expense_date', date);
               setShowDatePicker(false);
@@ -212,7 +229,7 @@ const EditExpenseScreen: React.FC = () => {
         </View>
 
         {/* Receipt Image */}
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Receipt</Text>
           <TouchableOpacity
             style={styles.receiptPicker}
@@ -227,12 +244,12 @@ const EditExpenseScreen: React.FC = () => {
               />
             ) : receiptImage && imgError ? (
               <View style={[styles.receiptPlaceholder, {gap: 6}]}>
-                <MaterialCommunityIcons name="image-broken-variant" size={28} color={COLORS.placeholder} />
+                <MaterialCommunityIcons name="image-broken-variant" size={28} color={COLORS.textSecondary} />
                 <Text style={styles.receiptPlaceholderText}>Tap to replace image</Text>
               </View>
             ) : (
               <View style={styles.receiptPlaceholder}>
-                <MaterialCommunityIcons name="camera-plus-outline" size={28} color={COLORS.placeholder} />
+                <MaterialCommunityIcons name="camera-plus-outline" size={28} color={COLORS.textSecondary} />
                 <Text style={styles.receiptPlaceholderText}>Add Receipt Photo</Text>
               </View>
             )}
@@ -265,22 +282,23 @@ const EditExpenseScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  centerFill: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl},
   scroll: {padding: SPACING.md},
-  section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
+  section: {borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: SPACING.md},
   categoryGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm},
-  categoryItem: {width: '30%', alignItems: 'center', padding: SPACING.sm, borderRadius: BORDER_RADIUS.md, gap: 4},
+  categoryItem: {width: '30%', alignItems: 'center', padding: SPACING.sm, borderRadius: RADIUS.md, gap: 4},
   categoryLabel: {fontSize: 11, fontWeight: '600', textAlign: 'center'},
-  dateField: {flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: BORDER_RADIUS.sm, padding: SPACING.md, gap: SPACING.sm, marginBottom: SPACING.sm},
+  dateField: {flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: RADIUS.sm, padding: SPACING.md, gap: SPACING.sm, marginBottom: SPACING.sm},
   dateContent: {flex: 1},
   dateLabel: {fontSize: 12, color: COLORS.textSecondary},
   dateValue: {fontSize: 15, fontWeight: '500', marginTop: 2},
   submitBtn: {marginTop: SPACING.sm},
-  receiptPicker: {borderRadius: BORDER_RADIUS.md, overflow: 'hidden'},
-  receiptPreview: {width: '100%', height: 160, borderRadius: BORDER_RADIUS.md},
+  receiptPicker: {borderRadius: RADIUS.md, overflow: 'hidden'},
+  receiptPreview: {width: '100%', height: 160, borderRadius: RADIUS.md},
   receiptPlaceholder: {
     height: 100,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     borderWidth: 2,
     borderColor: COLORS.border,
     borderStyle: 'dashed',
@@ -288,7 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
-  receiptPlaceholderText: {fontSize: 12, color: COLORS.placeholder},
+  receiptPlaceholderText: {fontSize: 12, color: COLORS.textSecondary},
   receiptActions: {flexDirection: 'row', gap: SPACING.lg, marginTop: SPACING.sm},
   receiptActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
   receiptActionText: {fontSize: 12, fontWeight: '600'},

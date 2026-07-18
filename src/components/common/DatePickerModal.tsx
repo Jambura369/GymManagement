@@ -98,7 +98,7 @@ const DatePickerModal: React.FC<Props> = ({
                   <Text
                     style={[
                       styles.cellText,
-                      {color: isSelected ? '#fff' : textColor},
+                      {color: isSelected ? '#0B0F0E' : textColor},
                       isToday && !isSelected && {color: COLORS.primary},
                     ]}>
                     {day}

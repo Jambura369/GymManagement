@@ -17,8 +17,7 @@ import dayjs from 'dayjs';
 
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList, Student} from '../../types';
 import {fetchStudents, getExpiryAlerts, syncExpiredMemberships} from '../../services/studentService';
 import StatCard from '../../components/common/StatCard';
@@ -29,7 +28,6 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 const TrainerDashboardScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {user, gym} = useAuthStore();
-  const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
 
   const [myStudents, setMyStudents] = React.useState(0);
@@ -37,9 +35,6 @@ const TrainerDashboardScreen: React.FC = () => {
   const [expiryAlerts, setExpiryAlerts] = React.useState<Student[]>([]);
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
   const load = useCallback(async () => {
     if (!gym || !user) return;
@@ -68,13 +63,13 @@ const TrainerDashboardScreen: React.FC = () => {
   const PendingCard = ({student}: {student: Student}) => {
     const isCash = student.payment_type === 'Cash';
     return (
-      <Card style={[styles.pendingCard, {backgroundColor: cardBg}]}>
+      <Card style={[styles.pendingCard, {backgroundColor: COLORS.surface}]}>
         <Card.Content style={styles.pendingContent}>
           <View style={[styles.pendingIcon, {backgroundColor: COLORS.warning + '20'}]}>
             <MaterialCommunityIcons name="account-clock" size={20} color={COLORS.warning} />
           </View>
           <View style={styles.pendingInfo}>
-            <Text style={[styles.pendingName, {color: textColor}]} numberOfLines={1}>
+            <Text style={[styles.pendingName, {color: COLORS.textPrimary}]} numberOfLines={1}>
               {student.name}
             </Text>
             <Text style={[styles.pendingPhone, {color: COLORS.textSecondary}]}>
@@ -122,7 +117,7 @@ const TrainerDashboardScreen: React.FC = () => {
     const color = isExpired ? COLORS.error : diffDays <= 3 ? COLORS.warning : COLORS.info;
 
     return (
-      <Card style={[styles.alertCard, {backgroundColor: cardBg}]}>
+      <Card style={[styles.alertCard, {backgroundColor: COLORS.surface}]}>
         <Card.Content style={styles.alertContent}>
           <View style={[styles.alertIcon, {backgroundColor: color + '20'}]}>
             <MaterialCommunityIcons
@@ -132,7 +127,7 @@ const TrainerDashboardScreen: React.FC = () => {
             />
           </View>
           <View style={styles.alertInfo}>
-            <Text style={[styles.alertName, {color: textColor}]} numberOfLines={1}>
+            <Text style={[styles.alertName, {color: COLORS.textPrimary}]} numberOfLines={1}>
               {student.name}
             </Text>
             <Text style={[styles.alertPhone, {color: COLORS.textSecondary}]}>
@@ -159,13 +154,13 @@ const TrainerDashboardScreen: React.FC = () => {
 
   return (
     <ScrollView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={[styles.container, {backgroundColor: COLORS.background}]}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={[COLORS.trainerColor]}
+          colors={['#39FF88']}
         />
       }
       showsVerticalScrollIndicator={false}>
@@ -174,7 +169,7 @@ const TrainerDashboardScreen: React.FC = () => {
       <View
         style={[
           styles.header,
-          {backgroundColor: COLORS.trainerColor, paddingTop: insets.top + SPACING.md},
+          {backgroundColor: '#39FF88', paddingTop: insets.top + SPACING.md},
         ]}>
         <View style={styles.headerLeft}>
           {gym?.gym_logo ? (
@@ -200,7 +195,7 @@ const TrainerDashboardScreen: React.FC = () => {
           value={myStudents}
           icon="account-group"
           color={COLORS.primary}
-          isDark={isDark}
+          isDark={true}
           onPress={() => navigation.navigate('Students' as any)}
         />
         <StatCard
@@ -208,7 +203,7 @@ const TrainerDashboardScreen: React.FC = () => {
           value={pendingStudents.length}
           icon="account-clock"
           color={COLORS.warning}
-          isDark={isDark}
+          isDark={true}
         />
       </View>
       <View style={styles.statsGrid}>
@@ -221,7 +216,7 @@ const TrainerDashboardScreen: React.FC = () => {
           }).length}
           icon="calendar-alert"
           color={COLORS.warning}
-          isDark={isDark}
+          isDark={true}
           onPress={() => navigation.navigate('ExpiryList', {trainerId: user?.id, expiryFilter: 'expiring_3'})}
         />
         <StatCard
@@ -233,7 +228,7 @@ const TrainerDashboardScreen: React.FC = () => {
           }).length}
           icon="calendar-clock"
           color={COLORS.info}
-          isDark={isDark}
+          isDark={true}
           onPress={() => navigation.navigate('ExpiryList', {trainerId: user?.id, expiryFilter: 'expiring_7'})}
         />
       </View>
@@ -246,7 +241,7 @@ const TrainerDashboardScreen: React.FC = () => {
           }).length}
           icon="calendar-remove"
           color={COLORS.error}
-          isDark={isDark}
+          isDark={true}
           onPress={() => navigation.navigate('ExpiryList', {trainerId: user?.id, expiryFilter: 'expired'})}
         />
       </View>
@@ -304,23 +299,23 @@ const TrainerDashboardScreen: React.FC = () => {
       )}
 
       {/* Quick Actions */}
-      <Text style={[styles.qaTitle, {color: textColor}]}>Quick Actions</Text>
+      <Text style={[styles.qaTitle, {color: COLORS.textPrimary}]}>Quick Actions</Text>
       <View style={styles.qaGrid}>
         {[
           {icon: 'account-plus', label: 'Add Student', route: 'AddStudent', color: COLORS.primary},
           {icon: 'calendar-check', label: 'Attendance', route: 'Attendance', color: COLORS.success},
-          {icon: 'account-group', label: 'My Students', route: 'Students', color: COLORS.trainerColor},
+          {icon: 'account-group', label: 'My Students', route: 'Students', color: '#39FF88'},
           {icon: 'bell-outline', label: 'Notifications', route: 'Notifications', color: COLORS.info},
           {icon: 'account', label: 'Profile', route: 'Profile', color: COLORS.success},
         ].map(item => (
           <TouchableOpacity
             key={item.route}
-            style={[styles.qaItem, {backgroundColor: cardBg}]}
+            style={[styles.qaItem, {backgroundColor: COLORS.surface}]}
             onPress={() => navigation.navigate(item.route as any)}>
             <View style={[styles.qaIcon, {backgroundColor: item.color + '20'}]}>
               <MaterialCommunityIcons name={item.icon} size={28} color={item.color} />
             </View>
-            <Text style={[styles.qaLabel, {color: textColor}]}>{item.label}</Text>
+            <Text style={[styles.qaLabel, {color: COLORS.textPrimary}]}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -376,7 +371,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.xs,
     paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     marginTop: SPACING.xs,
   },
@@ -385,13 +380,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: RADIUS.sm,
     padding: SPACING.sm,
     marginBottom: SPACING.sm,
   },
   sectionNoteText: {flex: 1, fontSize: 12, lineHeight: 17},
   /* Pending card */
-  pendingCard: {borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.xs, elevation: 1},
+  pendingCard: {borderRadius: RADIUS.md, marginBottom: SPACING.xs, elevation: 1},
   pendingContent: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.xs},
   pendingIcon: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center'},
   pendingInfo: {flex: 1},
@@ -404,7 +399,7 @@ const styles = StyleSheet.create({
   qrNoteText: {fontSize: 11, fontWeight: '600'},
   callBtn: {width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center'},
   /* Alert card */
-  alertCard: {borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.xs, elevation: 1},
+  alertCard: {borderRadius: RADIUS.md, marginBottom: SPACING.xs, elevation: 1},
   alertContent: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.xs},
   alertIcon: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center'},
   alertInfo: {flex: 1},
@@ -422,7 +417,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
   },
   qaGrid: {flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.md, gap: SPACING.md},
-  qaItem: {width: '44%', alignItems: 'center', padding: SPACING.lg, borderRadius: BORDER_RADIUS.lg, elevation: 2},
+  qaItem: {width: '44%', alignItems: 'center', padding: SPACING.lg, borderRadius: RADIUS.lg, elevation: 2},
   qaIcon: {width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.sm},
   qaLabel: {fontSize: 13, fontWeight: '600', textAlign: 'center'},
 });

@@ -13,8 +13,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import dayjs from 'dayjs';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
-import {useThemeStore} from '../../store/themeStore';
-import {BORDER_RADIUS, COLORS, SPACING} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList} from '../../types';
 import {AttendanceRecord, getAttendanceSummary, getMemberAttendance} from '../../services/attendanceService';
 
@@ -24,7 +23,6 @@ type RouteT = RouteProp<RootStackParamList, 'AttendanceHistory'>;
 const AttendanceHistoryScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteT>();
-  const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
 
   const {studentId, studentName} = route.params;
@@ -33,9 +31,6 @@ const AttendanceHistoryScreen: React.FC = () => {
   const [summary, setSummary] = useState({total_days: 0, this_month: 0, last_check_in: null as string | null});
   const [loading, setLoading] = useState(true);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,12 +59,12 @@ const AttendanceHistoryScreen: React.FC = () => {
   ];
 
   const renderRecord = ({item}: {item: AttendanceRecord}) => (
-    <View style={[styles.recordRow, {backgroundColor: cardBg}]}>
+    <View style={[styles.recordRow, {backgroundColor: COLORS.surface}]}>
       <View style={[styles.dateDot, {backgroundColor: COLORS.success + '20'}]}>
         <MaterialCommunityIcons name="check" size={14} color={COLORS.success} />
       </View>
       <View style={styles.recordInfo}>
-        <Text style={[styles.recordDate, {color: textColor}]}>
+        <Text style={[styles.recordDate, {color: COLORS.textPrimary}]}>
           {dayjs(item.date).format('ddd, DD MMM YYYY')}
         </Text>
         <Text style={[styles.recordTime, {color: COLORS.textSecondary}]}>
@@ -86,18 +81,18 @@ const AttendanceHistoryScreen: React.FC = () => {
   );
 
   return (
-    <View style={[styles.container, {backgroundColor: bgColor}]}>
+    <View style={[styles.container, {backgroundColor: COLORS.background}]}>
       {/* Header */}
       <View
         style={[
           styles.header,
-          {paddingTop: insets.top + SPACING.sm, backgroundColor: isDark ? COLORS.cardDark : COLORS.card},
+          {paddingTop: insets.top + SPACING.sm, backgroundColor: COLORS.surface},
         ]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
+          <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
-          <Text style={[styles.title, {color: textColor}]} numberOfLines={1}>
+          <Text style={[styles.title, {color: COLORS.textPrimary}]} numberOfLines={1}>
             {studentName}
           </Text>
           <Text style={[styles.subtitle, {color: COLORS.textSecondary}]}>Attendance History</Text>
@@ -136,8 +131,8 @@ const AttendanceHistoryScreen: React.FC = () => {
               </View>
 
               {/* Calendar */}
-              <View style={[styles.calendarCard, {backgroundColor: cardBg}]}>
-                <Text style={[styles.calendarTitle, {color: textColor}]}>
+              <View style={[styles.calendarCard, {backgroundColor: COLORS.surface}]}>
+                <Text style={[styles.calendarTitle, {color: COLORS.textPrimary}]}>
                   {currentMonth.format('MMMM YYYY')}
                 </Text>
                 <View style={styles.weekRow}>
@@ -162,7 +157,7 @@ const AttendanceHistoryScreen: React.FC = () => {
                         <Text
                           style={[
                             styles.calDay,
-                            {color: isAttended ? '#FFF' : isToday ? COLORS.primary : textColor},
+                            {color: isAttended ? '#FFF' : isToday ? COLORS.primary : COLORS.textPrimary},
                           ]}>
                           {day}
                         </Text>
@@ -172,7 +167,7 @@ const AttendanceHistoryScreen: React.FC = () => {
                 </View>
               </View>
 
-              <Text style={[styles.sectionTitle, {color: textColor}]}>Recent Visits</Text>
+              <Text style={[styles.sectionTitle, {color: COLORS.textPrimary}]}>Recent Visits</Text>
             </>
           }
           ListEmptyComponent={
@@ -206,10 +201,10 @@ const styles = StyleSheet.create({
   subtitle: {fontSize: 12, marginTop: 1},
   listContent: {paddingHorizontal: SPACING.md, paddingTop: SPACING.sm},
   summaryRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md},
-  summaryCard: {flex: 1, borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, alignItems: 'center'},
+  summaryCard: {flex: 1, borderRadius: RADIUS.md, padding: SPACING.sm, alignItems: 'center'},
   summaryValue: {fontSize: 22, fontWeight: '800'},
   summaryLabel: {fontSize: 11, marginTop: 2, fontWeight: '500'},
-  calendarCard: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
+  calendarCard: {borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   calendarTitle: {fontSize: 15, fontWeight: '700', marginBottom: SPACING.sm},
   weekRow: {flexDirection: 'row', justifyContent: 'space-around', marginBottom: SPACING.xs},
   weekDay: {fontSize: 11, fontWeight: '600', width: 32, textAlign: 'center'},
@@ -229,7 +224,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     padding: SPACING.sm + 2,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     marginBottom: SPACING.xs,
     elevation: 1,
   },

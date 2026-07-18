@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Text} from 'react-native';
+import {StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform, Text, ActivityIndicator} from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
@@ -8,8 +8,8 @@ import {Chip} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS, PACKAGE_TYPES} from '../../constants';
+import {PACKAGE_TYPES} from '../../constants';
+import {COLORS, RADIUS, SPACING} from '../../theme';
 import {RootStackParamList} from '../../types';
 import {updatePackage} from '../../services/packageService';
 import {supabase} from '../../supabase/client';
@@ -31,13 +31,11 @@ type Route = RouteProp<RootStackParamList, 'EditPackage'>;
 const EditPackageScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<Route>();
-  const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
 
   const {control, handleSubmit, setValue, watch, reset, formState: {errors}} = useForm<FormData>({resolver: zodResolver(schema)});
   const selectedType = watch('type') || 'Monthly';
@@ -47,10 +45,12 @@ const EditPackageScreen: React.FC = () => {
   }, []);
 
   const loadPackage = async () => {
-    const {data} = await supabase.from('packages').select('*').eq('id', route.params.packageId).single();
+    const {data, error} = await supabase.from('packages').select('*').eq('id', route.params.packageId).single();
     if (data) {
       reset({name: data.name, type: data.type, price: Number(data.price), duration_days: data.duration_days, description: data.description || ''});
       setLoaded(true);
+    } else {
+      setLoadError(error?.message || 'Could not load package');
     }
   };
 
@@ -66,21 +66,37 @@ const EditPackageScreen: React.FC = () => {
     }
   };
 
-  if (!loaded) return null;
+  if (!loaded) {
+    return (
+      <View style={[styles.container, {backgroundColor: COLORS.background}]}>
+        <AppHeader title="Edit Package" onBack={() => navigation.goBack()} isDark />
+        <View style={styles.centerFill}>
+          {loadError ? (
+            <>
+              <Text style={{color: COLORS.error, marginBottom: SPACING.md, textAlign: 'center'}}>{loadError}</Text>
+              <AppButton title="Retry" onPress={() => { setLoadError(null); loadPackage(); }} />
+            </>
+          ) : (
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader title="Edit Package" onBack={() => navigation.goBack()} isDark={isDark} />
+    <KeyboardAvoidingView style={[styles.container, {backgroundColor: COLORS.background}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <AppHeader title="Edit Package" onBack={() => navigation.goBack()} isDark />
       <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled">
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>Type</Text>
           <View style={styles.chipRow}>
             {PACKAGE_TYPES.map(type => (
-              <Chip key={type} selected={selectedType === type} onPress={() => setValue('type', type)} style={[selectedType === type && {backgroundColor: COLORS.primary}]} textStyle={{color: selectedType === type ? '#FFF' : textColor, fontSize: 12}} compact>{type}</Chip>
+              <Chip key={type} selected={selectedType === type} onPress={() => setValue('type', type)} style={[selectedType === type && {backgroundColor: COLORS.primary}]} textStyle={{color: selectedType === type ? '#0B0F0E' : COLORS.textPrimary, fontSize: 12}} selectedColor="#0B0F0E" compact>{type}</Chip>
             ))}
           </View>
         </View>
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Controller control={control} name="name" render={({field: {onChange, value, onBlur}}) => (<AppInput label="Name *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.name?.message} />)} />
           <Controller control={control} name="price" render={({field: {onChange, value}}) => (<AppInput label="Price (₹) *" value={value?.toString()} onChangeText={t => onChange(Number(t) || 0)} keyboardType="numeric" />)} />
           <Controller control={control} name="duration_days" render={({field: {onChange, value}}) => (<AppInput label="Duration (Days) *" value={value?.toString()} onChangeText={t => onChange(Number(t) || 0)} keyboardType="numeric" />)} />
@@ -94,8 +110,9 @@ const EditPackageScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  centerFill: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl},
   scroll: {padding: SPACING.md},
-  section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
+  section: {borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   sectionTitle: {fontSize: 13, fontWeight: '700', textTransform: 'uppercase', marginBottom: SPACING.md},
   chipRow: {flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs},
 });

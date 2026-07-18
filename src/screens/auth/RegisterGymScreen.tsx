@@ -8,24 +8,23 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
-import {TextInput} from 'react-native-paper';
 import {showImagePicker, PICKER_PRESETS} from '../../utils/imagePicker';
 import Toast from 'react-native-toast-message';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {registerGym} from '../../services/authService';
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS, APP_NAME} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
+import {APP_NAME} from '../../constants';
 import {RootStackParamList} from '../../types';
-import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
-import AppHeader from '../../components/common/AppHeader';
 
 const PHONE_REGEX = /^[6-9]\d{9}$|^\+?[1-9]\d{7,14}$/;
 
@@ -54,17 +53,17 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 type Props = {navigation: NativeStackNavigationProp<RootStackParamList, 'RegisterGym'>};
 
+const STEPS = ['Gym Info', 'Owner Info', 'Account'];
+
 const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [gymLogo, setGymLogo] = useState<string | null>(null);
   const [paymentQr, setPaymentQr] = useState<string | null>(null);
   const {setAuth} = useAuthStore();
-  const {isDark} = useThemeStore();
-
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
+  const insets = useSafeAreaInsets();
 
   const {
     control,
@@ -110,60 +109,57 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
     }
 
     if (result.data) {
-      Toast.show({
-        type: 'success',
-        text1: 'Gym Registered!',
-        text2: `Welcome to ${APP_NAME}`,
-      });
+      Toast.show({type: 'success', text1: 'Gym Registered!', text2: `Welcome to ${APP_NAME}`});
       setAuth(result.data.user, result.data.gym);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader
-        title="Register Your Gym"
-        subtitle="Set up your gym account"
-        onBack={() => navigation.goBack()}
-        isDark={isDark}
-      />
+      <StatusBar backgroundColor="#111413" barStyle="light-content" />
+
+      {/* Header */}
+      <View style={[styles.header, {paddingTop: insets.top}]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="chevron-left" size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Register Gym</Text>
+        <Text style={styles.stepLabel}>Step {step} of {STEPS.length}</Text>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
-        {/* Section: Gym Info */}
+        {/* Step 1: Gym Info */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>
-            Gym Information
-          </Text>
+          <Text style={styles.sectionLabel}>GYM INFORMATION</Text>
 
           {/* Logo Upload */}
-          <TouchableOpacity
-            style={styles.imageUpload}
-            onPress={() => pickImage('logo')}>
-            {gymLogo ? (
-              <Image source={{uri: gymLogo}} style={styles.logoImage} />
-            ) : (
-              <View style={styles.uploadPlaceholder}>
-                <MaterialCommunityIcons
-                  name="store-outline"
-                  size={32}
-                  color={COLORS.placeholder}
-                />
-                <Text style={styles.uploadText}>Upload Gym Logo</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.logoRow}>
+            <TouchableOpacity style={styles.logoBtn} onPress={() => pickImage('logo')}>
+              {gymLogo ? (
+                <Image source={{uri: gymLogo}} style={styles.logoImage} />
+              ) : (
+                <MaterialCommunityIcons name="camera-plus-outline" size={36} color={COLORS.textSecondary} />
+              )}
+            </TouchableOpacity>
+            {/* Plus indicator */}
+            <View style={styles.logoBadge}>
+              <MaterialCommunityIcons name="plus" size={16} color="#0b0f0e" />
+            </View>
+          </View>
+          <Text style={styles.uploadHint}>Upload Gym Logo</Text>
 
           <Controller
             control={control}
             name="gym_name"
             render={({field: {onChange, value, onBlur}}) => (
               <AppInput
-                label="Gym Name *"
+                label="Gym Name"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
@@ -177,7 +173,7 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
             name="address"
             render={({field: {onChange, value, onBlur}}) => (
               <AppInput
-                label="Address *"
+                label="Gym Address"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
@@ -188,51 +184,12 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
             )}
           />
 
-          {/* Payment QR Upload */}
-          <TouchableOpacity
-            style={styles.qrUpload}
-            onPress={() => pickImage('qr')}>
-            {paymentQr ? (
-              <Image source={{uri: paymentQr}} style={styles.qrImage} />
-            ) : (
-              <View style={styles.qrPlaceholder}>
-                <MaterialCommunityIcons
-                  name="qrcode"
-                  size={28}
-                  color={COLORS.placeholder}
-                />
-                <Text style={styles.uploadText}>Upload Payment QR (Optional)</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Section: Owner Info */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>
-            Owner Information
-          </Text>
-
-          <Controller
-            control={control}
-            name="owner_name"
-            render={({field: {onChange, value, onBlur}}) => (
-              <AppInput
-                label="Owner Name *"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.owner_name?.message}
-              />
-            )}
-          />
-
           <Controller
             control={control}
             name="phone"
             render={({field: {onChange, value, onBlur}}) => (
               <AppInput
-                label="Phone Number *"
+                label="Gym Phone"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
@@ -243,25 +200,49 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
           />
         </View>
 
-        {/* Section: Account */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: COLORS.primary}]}>
-            Account Credentials
+        {/* Info card */}
+        <View style={styles.infoCard}>
+          <MaterialCommunityIcons name="information-outline" size={18} color={COLORS.primary} />
+          <Text style={styles.infoText}>
+            Your gym profile will be visible to members. You can update this information later in Settings.
           </Text>
+        </View>
+
+        {/* Owner Info */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>OWNER INFORMATION</Text>
+
+          <Controller
+            control={control}
+            name="owner_name"
+            render={({field: {onChange, value, onBlur}}) => (
+              <AppInput
+                label="Owner Name"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.owner_name?.message}
+              />
+            )}
+          />
+        </View>
+
+        {/* Account Credentials */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>ACCOUNT CREDENTIALS</Text>
 
           <Controller
             control={control}
             name="email"
             render={({field: {onChange, value, onBlur}}) => (
               <AppInput
-                label="Email Address *"
+                label="Email Address"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 error={errors.email?.message}
-                left={<TextInput.Icon icon="email-outline" />}
               />
             )}
           />
@@ -271,17 +252,16 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
             name="password"
             render={({field: {onChange, value, onBlur}}) => (
               <AppInput
-                label="Password *"
+                label="Password"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 secureTextEntry={!showPassword}
                 error={errors.password?.message}
                 right={
-                  <TextInput.Icon
-                    icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    onPress={() => setShowPassword(p => !p)}
-                  />
+                  <TouchableOpacity onPress={() => setShowPassword(p => !p)} style={{padding: 8}}>
+                    <MaterialCommunityIcons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textSecondary} />
+                  </TouchableOpacity>
                 }
               />
             )}
@@ -292,105 +272,196 @@ const RegisterGymScreen: React.FC<Props> = ({navigation}) => {
             name="confirm_password"
             render={({field: {onChange, value, onBlur}}) => (
               <AppInput
-                label="Confirm Password *"
+                label="Confirm Password"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 secureTextEntry={!showConfirmPassword}
                 error={errors.confirm_password?.message}
                 right={
-                  <TextInput.Icon
-                    icon={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                    onPress={() => setShowConfirmPassword(p => !p)}
-                  />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(p => !p)} style={{padding: 8}}>
+                    <MaterialCommunityIcons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textSecondary} />
+                  </TouchableOpacity>
                 }
               />
             )}
           />
         </View>
 
-        <AppButton
-          title="Register Gym"
-          onPress={handleSubmit(onSubmit)}
-          loading={loading}
-          style={styles.submitBtn}
-          icon="store-check-outline"
-        />
+        {/* Payment QR */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>PAYMENT QR (OPTIONAL)</Text>
+          <TouchableOpacity style={styles.qrUpload} onPress={() => pickImage('qr')}>
+            {paymentQr ? (
+              <Image source={{uri: paymentQr}} style={styles.qrImage} />
+            ) : (
+              <View style={styles.qrPlaceholder}>
+                <MaterialCommunityIcons name="qrcode" size={28} color={COLORS.textSecondary} />
+                <Text style={styles.uploadHint}>Upload Payment QR</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
-        <Text style={styles.terms}>
-          By registering, you agree to our Terms of Service
-        </Text>
+        <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Bottom action bar */}
+      <View style={[styles.actionBar, {paddingBottom: insets.bottom + SPACING.sm}]}>
+        <TouchableOpacity
+          style={[styles.continueBtn, loading && styles.continueBtnDisabled]}
+          onPress={handleSubmit(onSubmit)}
+          disabled={loading}>
+          <Text style={styles.continueBtnText}>{loading ? 'REGISTERING...' : 'CONTINUE'}</Text>
+          {!loading && (
+            <MaterialCommunityIcons name="arrow-right" size={18} color="#0b0f0e" />
+          )}
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
-  scroll: {padding: SPACING.md, paddingBottom: SPACING.xxl},
-  section: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
+  container: {flex: 1, backgroundColor: COLORS.background},
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: '#111413',
+    gap: SPACING.sm,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: FONT_SIZE.xl,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.primary,
+  },
+  stepLabel: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.semiBold,
+    color: COLORS.textSecondary,
+  },
+  scroll: {
     padding: SPACING.md,
-    marginBottom: SPACING.md,
-    elevation: 1,
+    paddingBottom: SPACING.xl,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+  section: {
     marginBottom: SPACING.md,
+    gap: SPACING.sm,
   },
-  imageUpload: {
+  sectionLabel: {
+    fontSize: FONT_SIZE.xs,
+    fontWeight: FONT_WEIGHT.semiBold,
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+    marginBottom: SPACING.xs,
+  },
+  logoRow: {
     alignSelf: 'center',
-    marginBottom: SPACING.md,
+    position: 'relative',
+    marginBottom: SPACING.xs,
   },
-  logoImage: {
-    width: 100,
-    height: 100,
-    borderRadius: BORDER_RADIUS.lg,
+  logoBtn: {
+    width: 128,
+    height: 128,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.surface,
     borderWidth: 2,
-    borderColor: COLORS.primary,
-  },
-  uploadPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.textSecondary,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
+  },
+  logoImage: {
+    width: 128,
+    height: 128,
+    borderRadius: RADIUS.pill,
+  },
+  logoBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadHint: {
+    textAlign: 'center',
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    backgroundColor: '#191c1b',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
   qrUpload: {
     alignSelf: 'center',
-    marginTop: SPACING.sm,
   },
   qrImage: {
     width: 120,
     height: 120,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     borderWidth: 2,
     borderColor: COLORS.primary,
   },
   qrPlaceholder: {
     width: 160,
     height: 60,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: COLORS.border,
     borderStyle: 'dashed',
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+  },
+  bottomSpacer: {height: SPACING.xl},
+  actionBar: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  continueBtn: {
+    height: 48,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.background,
+    gap: SPACING.xs,
   },
-  uploadText: {fontSize: 11, color: COLORS.placeholder, textAlign: 'center', marginTop: 4},
-  submitBtn: {marginTop: SPACING.sm, marginBottom: SPACING.sm},
-  terms: {textAlign: 'center', fontSize: 11, color: COLORS.textSecondary},
+  continueBtnDisabled: {opacity: 0.6},
+  continueBtnText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.semiBold,
+    color: '#0b0f0e',
+    letterSpacing: 0.5,
+  },
 });
 
 export default RegisterGymScreen;

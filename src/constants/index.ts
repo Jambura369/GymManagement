@@ -3,45 +3,49 @@ import {Dimensions} from 'react-native';
 export const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} =
   Dimensions.get('window');
 
+// Gymblix brand palette — dark-only (the *Dark-suffixed keys mirror the base
+// keys so the old isDark ternaries scattered across screens stay harmless).
+// Update values here to change colors app-wide; see also src/theme/index.ts
+// for the same tokens under cleaner names, used by newly built screens.
 export const COLORS = {
-  primary: '#D93B3A',
-  primaryDark: '#B22524',
-  primaryLight: '#FF8A87',
-  secondary: '#FF7847',
-  accent: '#10B981',
-  gold: '#F59E0B',
-  goldLight: '#FCD34D',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#3B82F6',
-  background: '#FBF7F7',
-  backgroundDark: '#120E0E',
-  surface: '#FFFFFF',
-  surfaceDark: '#1E1818',
-  card: '#FFFFFF',
-  cardDark: '#261E1E',
-  text: '#1A1414',
-  textDark: '#FBF1F1',
-  textSecondary: '#6B7280',
-  textSecondaryDark: '#9CA3AF',
-  border: '#E5E7EB',
-  borderDark: '#3A2C2C',
-  placeholder: '#9CA3AF',
+  primary: '#C6FF00', // Volt Lime — CTAs, active nav, links, key highlights
+  primaryDark: '#9FCC00',
+  primaryLight: '#DFFF66',
+  secondary: '#39FF88', // Mint Green — success / secondary highlights
+  accent: '#39FF88',
+  gold: '#FFB020',
+  goldLight: '#FFD180',
+  success: '#39FF88',
+  warning: '#FFB020',
+  error: '#FF4D4D',
+  info: '#3DB8FF',
+  background: '#0B0F0E',
+  backgroundDark: '#0B0F0E',
+  surface: '#161D1A',
+  surfaceDark: '#161D1A',
+  card: '#161D1A',
+  cardDark: '#1E2622',
+  text: '#F5F7F5',
+  textDark: '#F5F7F5',
+  textSecondary: '#9CA3A0',
+  textSecondaryDark: '#9CA3A0',
+  border: '#2A332E',
+  borderDark: '#2A332E',
+  placeholder: '#5C645F',
   overlay: 'rgba(0,0,0,0.6)',
-  gradientStart: '#E85452',
-  gradientMid: '#D13534',
-  gradientEnd: '#B22524',
-  adminColor: '#D93B3A',
-  managerColor: '#FF7847',
-  trainerColor: '#10B981',
+  gradientStart: '#39FF88',
+  gradientMid: '#C6FF00',
+  gradientEnd: '#9FCC00',
+  adminColor: '#C6FF00',
+  managerColor: '#3DB8FF',
+  trainerColor: '#39FF88',
 };
 
 export const FONTS = {
-  regular: 'Roboto-Regular',
-  medium: 'Roboto-Medium',
-  bold: 'Roboto-Bold',
-  light: 'Roboto-Light',
+  regular: 'Inter-Regular',
+  medium: 'Inter-Medium',
+  bold: 'Inter-Bold',
+  light: 'Inter-Regular',
 };
 
 export const SPACING = {

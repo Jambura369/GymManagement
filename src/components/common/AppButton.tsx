@@ -99,14 +99,14 @@ const AppButton: React.FC<AppButtonProps> = ({
         end={{x: 1, y: 0}}
         style={[styles.gradient, compact && styles.compact]}>
         {loading ? (
-          <ActivityIndicator size="small" color="#FFF" />
+          <ActivityIndicator size="small" color="#0B0F0E" />
         ) : (
           <View style={styles.row}>
             {icon && (
               <MaterialCommunityIcons
                 name={icon}
                 size={18}
-                color="#FFF"
+                color="#0B0F0E"
                 style={styles.iconSpacing}
               />
             )}
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   gradientLabel: {
-    color: '#FFFFFF',
+    color: '#0B0F0E',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.4,

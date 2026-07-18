@@ -17,9 +17,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import QRCode from 'react-native-qrcode-svg';
 
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
 import {useFeature} from '../../hooks/useFeature';
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList} from '../../types';
 import {getTodayAttendance, AttendanceRecord} from '../../services/attendanceService';
 
@@ -30,7 +29,6 @@ const CHECKIN_BASE = 'https://jpvtrcjfpsctwlhdzvtr.supabase.co/functions/v1/gym-
 const AttendanceQRScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {gym} = useAuthStore();
-  const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
   const {hasAccess} = useFeature('qr_attendance');
 
@@ -83,14 +81,9 @@ const AttendanceQRScreen: React.FC = () => {
 
   if (!hasAccess) return null;
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.cardDark : '#FFFFFF';
-  const subColor = isDark ? COLORS.textSecondaryDark : COLORS.textSecondary;
-  const borderColor = isDark ? COLORS.borderDark : COLORS.border;
 
   return (
-    <View style={[styles.root, {backgroundColor: bgColor}]}>
+    <View style={[styles.root, {backgroundColor: COLORS.background}]}>
       {/* Header */}
       <LinearGradient
         colors={['#E85452', '#B22524']}
@@ -118,7 +111,7 @@ const AttendanceQRScreen: React.FC = () => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}>
 
         {/* QR Card */}
-        <View style={[styles.qrCard, {backgroundColor: cardBg}]}>
+        <View style={[styles.qrCard, {backgroundColor: COLORS.surface}]}>
           <View style={styles.qrLabel}>
             <MaterialCommunityIcons name="qrcode-scan" size={16} color={COLORS.primary} />
             <Text style={[styles.qrLabelText, {color: COLORS.primary}]}>Students scan to check in</Text>
@@ -135,26 +128,26 @@ const AttendanceQRScreen: React.FC = () => {
               <QRCode
                 value={checkinUrl}
                 size={220}
-                color={isDark ? '#FFFFFF' : '#1A1414'}
-                backgroundColor={isDark ? COLORS.cardDark : '#FFFFFF'}
+                color={COLORS.textPrimary}
+                backgroundColor={COLORS.surface}
                 logoSize={36}
               />
             ) : (
               <View style={styles.qrPlaceholder}>
-                <MaterialCommunityIcons name="qrcode" size={80} color={subColor} />
+                <MaterialCommunityIcons name="qrcode" size={80} color={COLORS.textSecondary} />
               </View>
             )}
           </View>
 
-          <Text style={[styles.gymNameText, {color: textColor}]}>{gym?.gym_name}</Text>
-          <Text style={[styles.qrHint, {color: subColor}]}>
+          <Text style={[styles.gymNameText, {color: COLORS.textPrimary}]}>{gym?.gym_name}</Text>
+          <Text style={[styles.qrHint, {color: COLORS.textSecondary}]}>
             Open phone camera → scan → enter phone number
           </Text>
         </View>
 
         {/* How it works */}
-        <View style={[styles.howCard, {backgroundColor: cardBg, borderColor}]}>
-          <Text style={[styles.howTitle, {color: textColor}]}>How it works</Text>
+        <View style={[styles.howCard, {backgroundColor: COLORS.surface, borderColor: COLORS.border}]}>
+          <Text style={[styles.howTitle, {color: COLORS.textPrimary}]}>How it works</Text>
           {[
             {icon: 'cellphone', text: 'Student opens their phone camera'},
             {icon: 'qrcode-scan', text: 'Scans this QR code'},
@@ -165,7 +158,7 @@ const AttendanceQRScreen: React.FC = () => {
               <View style={[styles.stepIcon, {backgroundColor: COLORS.primary + '15'}]}>
                 <MaterialCommunityIcons name={step.icon} size={16} color={COLORS.primary} />
               </View>
-              <Text style={[styles.stepText, {color: subColor}]}>{step.text}</Text>
+              <Text style={[styles.stepText, {color: COLORS.textSecondary}]}>{step.text}</Text>
             </View>
           ))}
         </View>
@@ -173,7 +166,7 @@ const AttendanceQRScreen: React.FC = () => {
         {/* Today's Attendance */}
         <View style={styles.todaySection}>
           <View style={styles.todayHeader}>
-            <Text style={[styles.todayTitle, {color: textColor}]}>
+            <Text style={[styles.todayTitle, {color: COLORS.textPrimary}]}>
               Today's Check-ins
             </Text>
             <View style={[styles.countBadge, {backgroundColor: COLORS.primary + '15'}]}>
@@ -182,33 +175,33 @@ const AttendanceQRScreen: React.FC = () => {
           </View>
 
           {loading && records.length === 0 ? (
-            <View style={[styles.emptyCard, {backgroundColor: cardBg}]}>
-              <Text style={[styles.emptyText, {color: subColor}]}>Loading...</Text>
+            <View style={[styles.emptyCard, {backgroundColor: COLORS.surface}]}>
+              <Text style={[styles.emptyText, {color: COLORS.textSecondary}]}>Loading...</Text>
             </View>
           ) : records.length === 0 ? (
-            <View style={[styles.emptyCard, {backgroundColor: cardBg}]}>
-              <MaterialCommunityIcons name="account-clock-outline" size={36} color={subColor} />
-              <Text style={[styles.emptyText, {color: subColor}]}>No check-ins yet today</Text>
+            <View style={[styles.emptyCard, {backgroundColor: COLORS.surface}]}>
+              <MaterialCommunityIcons name="account-clock-outline" size={36} color={COLORS.textSecondary} />
+              <Text style={[styles.emptyText, {color: COLORS.textSecondary}]}>No check-ins yet today</Text>
             </View>
           ) : (
             records.map(rec => (
-              <View key={rec.id} style={[styles.recordCard, {backgroundColor: cardBg, borderColor}]}>
+              <View key={rec.id} style={[styles.recordCard, {backgroundColor: COLORS.surface, borderColor: COLORS.border}]}>
                 <View style={[styles.avatarCircle, {backgroundColor: COLORS.primary + '20'}]}>
                   <Text style={[styles.avatarText, {color: COLORS.primary}]}>
                     {(rec.student?.name ?? '?').slice(0, 2).toUpperCase()}
                   </Text>
                 </View>
                 <View style={styles.recordInfo}>
-                  <Text style={[styles.recordName, {color: textColor}]} numberOfLines={1}>
+                  <Text style={[styles.recordName, {color: COLORS.textPrimary}]} numberOfLines={1}>
                     {rec.student?.name ?? 'Unknown'}
                   </Text>
-                  <Text style={[styles.recordPhone, {color: subColor}]}>
+                  <Text style={[styles.recordPhone, {color: COLORS.textSecondary}]}>
                     {rec.student?.phone ?? ''}
                   </Text>
                 </View>
                 <View style={styles.recordTime}>
-                  <MaterialCommunityIcons name="clock-outline" size={13} color={subColor} />
-                  <Text style={[styles.recordTimeText, {color: subColor}]}>
+                  <MaterialCommunityIcons name="clock-outline" size={13} color={COLORS.textSecondary} />
+                  <Text style={[styles.recordTimeText, {color: COLORS.textSecondary}]}>
                     {new Date(rec.checked_in_at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'})}
                   </Text>
                 </View>
@@ -251,7 +244,7 @@ const styles = StyleSheet.create({
   scroll: {padding: SPACING.md, gap: SPACING.md},
 
   qrCard: {
-    borderRadius: BORDER_RADIUS.xl,
+    borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     alignItems: 'center',
     elevation: 4,
@@ -282,7 +275,7 @@ const styles = StyleSheet.create({
   qrHint: {fontSize: 12, marginTop: 4, textAlign: 'center'},
 
   howCard: {
-    borderRadius: BORDER_RADIUS.xl,
+    borderRadius: RADIUS.xl,
     padding: SPACING.md,
     borderWidth: 1,
     gap: SPACING.sm,
@@ -300,12 +293,12 @@ const styles = StyleSheet.create({
   todayTitle: {fontSize: 16, fontWeight: '700', flex: 1},
   countBadge: {
     paddingHorizontal: 10, paddingVertical: 3,
-    borderRadius: BORDER_RADIUS.round,
+    borderRadius: RADIUS.pill,
   },
   countText: {fontSize: 13, fontWeight: '800'},
 
   emptyCard: {
-    borderRadius: BORDER_RADIUS.xl,
+    borderRadius: RADIUS.xl,
     padding: SPACING.xl,
     alignItems: 'center', gap: SPACING.sm,
   },
@@ -313,7 +306,7 @@ const styles = StyleSheet.create({
 
   recordCard: {
     flexDirection: 'row', alignItems: 'center',
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: RADIUS.lg,
     padding: SPACING.sm + 2,
     borderWidth: 1,
     gap: SPACING.sm,

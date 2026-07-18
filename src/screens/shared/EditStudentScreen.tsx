@@ -12,8 +12,8 @@ import dayjs from 'dayjs';
 
 import {useStudentStore} from '../../store/studentStore';
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS, SUPABASE_BUCKETS} from '../../constants';
+import {SUPABASE_BUCKETS} from '../../constants';
+import {COLORS, RADIUS, SPACING} from '../../theme';
 import {RootStackParamList, Package, Student} from '../../types';
 import {getStudent} from '../../services/studentService';
 import {fetchPackages} from '../../services/packageService';
@@ -43,7 +43,6 @@ type Route = RouteProp<RootStackParamList, 'EditStudent'>;
 const EditStudentScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<Route>();
-  const {isDark} = useThemeStore();
   const {gym} = useAuthStore();
   const {updateStudent} = useStudentStore();
   const insets = useSafeAreaInsets();
@@ -55,8 +54,6 @@ const EditStudentScreen: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [selectedPackage, setSelectedPackage] = useState('');
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
 
   const {control, handleSubmit, reset, formState: {errors, isDirty}} = useForm<FormData>({resolver: zodResolver(schema)});
 
@@ -150,8 +147,8 @@ const EditStudentScreen: React.FC = () => {
 
   if (fetching) {
     return (
-      <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark={isDark} />
+      <KeyboardAvoidingView style={[styles.container, {backgroundColor: COLORS.background}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark />
         <View style={styles.loadingCenter}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
@@ -159,11 +156,20 @@ const EditStudentScreen: React.FC = () => {
     );
   }
 
-  if (!student) return null;
+  if (!student) {
+    return (
+      <KeyboardAvoidingView style={[styles.container, {backgroundColor: COLORS.background}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark />
+        <View style={styles.loadingCenter}>
+          <Text style={{color: COLORS.error, textAlign: 'center'}}>Could not load member. Please go back and try again.</Text>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
-    <KeyboardAvoidingView style={[styles.container, {backgroundColor: bgColor}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark={isDark} />
+    <KeyboardAvoidingView style={[styles.container, {backgroundColor: COLORS.background}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <AppHeader title="Edit Student" onBack={() => navigation.goBack()} isDark />
       <ScrollView contentContainerStyle={[styles.scroll, {paddingBottom: SPACING.xxl + insets.bottom}]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <TouchableOpacity
           style={styles.photoContainer}
@@ -172,7 +178,7 @@ const EditStudentScreen: React.FC = () => {
             <Image source={{uri: image}} style={styles.photo} />
           ) : (
             <View style={styles.photoPlaceholder}>
-              <MaterialCommunityIcons name="camera-plus-outline" size={32} color={COLORS.placeholder} />
+              <MaterialCommunityIcons name="camera-plus-outline" size={32} color={COLORS.textSecondary} />
             </View>
           )}
         </TouchableOpacity>
@@ -189,7 +195,7 @@ const EditStudentScreen: React.FC = () => {
           </View>
         )}
 
-        <View style={[styles.section, {backgroundColor: isDark ? COLORS.surfaceDark : COLORS.surface}]}>
+        <View style={[styles.section, {backgroundColor: COLORS.surface}]}>
           <Controller control={control} name="name" render={({field: {onChange, value, onBlur}}) => (
             <AppInput label="Full Name *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.name?.message} />
           )} />
@@ -204,7 +210,7 @@ const EditStudentScreen: React.FC = () => {
             value={selectedPackage}
             options={packages.map(p => ({label: `${p.name} — ₹${p.price}`, value: p.id}))}
             onSelect={setSelectedPackage}
-            isDark={isDark}
+            isDark={true}
           />
           {selectedPackage && selectedPackage !== student.package_id && (
             <View style={styles.expiryNote}>
@@ -241,13 +247,13 @@ const styles = StyleSheet.create({
   photoActions: {flexDirection: 'row', justifyContent: 'center', gap: SPACING.lg, marginTop: -SPACING.sm, marginBottom: SPACING.md},
   photoActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
   photoActionText: {fontSize: 12, fontWeight: '600'},
-  section: {borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
+  section: {borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 1},
   expiryNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
     backgroundColor: COLORS.info + '15',
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: RADIUS.sm,
     padding: SPACING.sm,
     marginBottom: SPACING.sm,
     borderLeftWidth: 3,

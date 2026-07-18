@@ -3,26 +3,23 @@ import {
   StyleSheet,
   View,
   Text,
-  ScrollView,
+  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import {useForm, Controller} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
-import {TextInput} from 'react-native-paper';
 import Toast from 'react-native-toast-message';
-import LinearGradient from 'react-native-linear-gradient';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import {resetPassword} from '../../services/authService';
-import {useThemeStore} from '../../store/themeStore';
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList} from '../../types';
-import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 
 const schema = z.object({
@@ -35,12 +32,7 @@ type Props = {navigation: NativeStackNavigationProp<RootStackParamList, 'ForgotP
 const ForgotPasswordScreen: React.FC<Props> = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
-
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.surfaceDark : COLORS.surface;
 
   const {
     control,
@@ -67,70 +59,55 @@ const ForgotPasswordScreen: React.FC<Props> = ({navigation}) => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <StatusBar backgroundColor="transparent" barStyle="light-content" translucent />
+      <StatusBar backgroundColor={COLORS.background} barStyle="light-content" />
+
+      {/* Ambient glow */}
+      <View style={styles.ambientGlow} />
+
+      {/* Header */}
+      <View style={[styles.header, {paddingTop: insets.top}]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="chevron-left" size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Reset Password</Text>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
-        <LinearGradient
-          colors={[COLORS.gradientStart, COLORS.gradientMid, COLORS.gradientEnd]}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
-          style={[styles.header, {paddingTop: insets.top + SPACING.xl}]}>
-          <View style={styles.headerDecor} />
-          <View style={styles.iconWrapper}>
-            <MaterialCommunityIcons name="lock-reset" size={52} color="#FFF" />
-          </View>
-          <Text style={styles.headerTitle}>Reset Password</Text>
-          <Text style={styles.headerSub}>
-            Enter your email and we'll send you a reset link
-          </Text>
-        </LinearGradient>
-
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: cardBg,
-              borderColor: isDark ? COLORS.borderDark : 'transparent',
-              borderWidth: isDark ? 1 : 0,
-            },
-          ]}>
-
-          {sent ? (
-            <View style={styles.successBox}>
-              <MaterialCommunityIcons
-                name="email-check-outline"
-                size={52}
-                color={COLORS.success}
-              />
-              <Text style={[styles.successTitle, {color: textColor}]}>
-                Check your inbox
-              </Text>
-              <Text style={[styles.successMsg, {color: COLORS.textSecondary}]}>
-                A password reset link was sent to{'\n'}
-                <Text style={{fontWeight: '700', color: textColor}}>
-                  {getValues('email')}
-                </Text>
-              </Text>
-              <AppButton
-                title="Back to Login"
-                onPress={() => navigation.goBack()}
-                style={styles.backBtn}
-                icon="arrow-left"
-              />
+        {sent ? (
+          <View style={styles.successContent}>
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons name="email-check-outline" size={36} color={COLORS.primary} />
             </View>
-          ) : (
-            <>
-              <Text style={[styles.title, {color: textColor}]}>Forgot Password?</Text>
-              <Text style={[styles.subtitle, {color: COLORS.textSecondary}]}>
-                We'll email you a secure link to reset your password.
-              </Text>
+            <Text style={styles.heading}>Check your inbox</Text>
+            <Text style={styles.subText}>
+              A password reset link was sent to{'\n'}
+              <Text style={styles.emailHighlight}>{getValues('email')}</Text>
+            </Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>
+              <Text style={styles.primaryBtnText}>Back to Login</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.content}>
+            {/* Icon */}
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons name="lock-reset" size={36} color={COLORS.primary} />
+            </View>
 
+            {/* Heading */}
+            <Text style={styles.heading}>Forgot Password?</Text>
+            <Text style={styles.subText}>
+              Enter your email address to receive a{'\n'}password reset link.
+            </Text>
+
+            {/* Form */}
+            <View style={styles.form}>
               <Controller
                 control={control}
                 name="email"
@@ -143,96 +120,136 @@ const ForgotPasswordScreen: React.FC<Props> = ({navigation}) => {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     error={errors.email?.message}
-                    left={
-                      <TextInput.Icon icon="email-outline" color={COLORS.primary} />
-                    }
                   />
                 )}
               />
 
-              <AppButton
-                title="Send Reset Link"
+              <TouchableOpacity
+                style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
                 onPress={handleSubmit(onSubmit)}
-                loading={loading}
-                style={styles.button}
-                icon="send"
-              />
+                disabled={loading}>
+                <Text style={styles.primaryBtnText}>
+                  {loading ? 'Sending...' : 'Send Reset Link'}
+                </Text>
+              </TouchableOpacity>
 
-              <AppButton
-                title="Back to Login"
-                onPress={() => navigation.goBack()}
-                mode="outlined"
-                style={styles.backBtn}
-                icon="arrow-left"
-              />
-            </>
-          )}
-        </View>
+              <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.goBack()}>
+                <Text style={styles.linkBtnText}>Back to Login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
-  scroll: {flexGrow: 1, paddingBottom: SPACING.xl},
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  ambientGlow: {
+    position: 'absolute',
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: COLORS.primary,
+    opacity: 0.04,
+    top: -100,
+    left: -100,
+  },
   header: {
-    paddingBottom: 56,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-    overflow: 'hidden',
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: '#111413',
     gap: SPACING.sm,
   },
-  headerDecor: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    top: -60,
-    right: -40,
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  iconWrapper: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  headerTitle: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.primary,
+  },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xxl,
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: SPACING.xxl,
+    gap: SPACING.md,
+  },
+  successContent: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: SPACING.xxl,
+    gap: SPACING.lg,
+  },
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: RADIUS.pill,
+    backgroundColor: '#1D201F',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.sm,
   },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: 0.5,
-  },
-  headerSub: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
+  heading: {
+    fontSize: 24,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
     textAlign: 'center',
-    paddingHorizontal: SPACING.xl,
-    lineHeight: 20,
   },
-  card: {
-    marginHorizontal: SPACING.lg,
-    marginTop: -SPACING.xl,
-    padding: SPACING.lg,
-    borderRadius: 28,
-    elevation: 8,
-    shadowColor: '#D93B3A',
-    shadowOffset: {width: 0, height: 8},
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
+  subText: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  title: {fontSize: 20, fontWeight: '800', marginBottom: 4},
-  subtitle: {fontSize: 13, marginBottom: SPACING.lg, lineHeight: 20},
-  button: {marginTop: SPACING.sm},
-  backBtn: {marginTop: SPACING.sm},
-  successBox: {alignItems: 'center', gap: SPACING.md, paddingVertical: SPACING.md},
-  successTitle: {fontSize: 20, fontWeight: '800'},
-  successMsg: {fontSize: 14, textAlign: 'center', lineHeight: 22},
+  emailHighlight: {
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.semiBold,
+  },
+  form: {
+    width: '100%',
+    gap: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  primaryBtn: {
+    height: 48,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnDisabled: {
+    opacity: 0.6,
+  },
+  primaryBtnText: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.semiBold,
+    color: '#151f00',
+  },
+  linkBtn: {
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  linkBtnText: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHT.medium,
+  },
 });
 
 export default ForgotPasswordScreen;

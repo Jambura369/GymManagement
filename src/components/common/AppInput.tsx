@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, View, Text} from 'react-native';
+import {StyleSheet, View, Text, StyleProp, ViewStyle} from 'react-native';
 import {TextInput} from 'react-native-paper';
 import {COLORS, SPACING} from '../../constants';
 
@@ -20,6 +20,7 @@ interface AppInputProps {
   onBlur?: () => void;
   editable?: boolean;
   maxLength?: number;
+  style?: StyleProp<ViewStyle>;
 }
 
 const AppInput: React.FC<AppInputProps> = ({
@@ -39,9 +40,10 @@ const AppInput: React.FC<AppInputProps> = ({
   onBlur,
   editable = true,
   maxLength,
+  style,
 }) => {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <TextInput
         label={label}
         value={value}

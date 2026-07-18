@@ -15,11 +15,10 @@ import dayjs from 'dayjs';
 
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuthStore} from '../../store/authStore';
-import {useThemeStore} from '../../store/themeStore';
 import {useDashboardStore} from '../../store/dashboardStore';
 import {syncExpiredMemberships} from '../../services/studentService';
 import {checkAndSendExpiryNotifications} from '../../services/notificationService';
-import {COLORS, SPACING, BORDER_RADIUS} from '../../constants';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS} from '../../theme';
 import {RootStackParamList} from '../../types';
 import StatCard from '../../components/common/StatCard';
 import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
@@ -29,14 +28,10 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 const ManagerDashboardScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const {user, gym} = useAuthStore();
-  const {isDark} = useThemeStore();
   const insets = useSafeAreaInsets();
   const {stats, isLoading, refresh} = useDashboardStore();
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const bgColor = isDark ? COLORS.backgroundDark : COLORS.background;
-  const textColor = isDark ? COLORS.textDark : COLORS.text;
-  const cardBg = isDark ? COLORS.cardDark : COLORS.card;
 
   const load = useCallback(async () => {
     if (!gym) return;
@@ -60,26 +55,26 @@ const ManagerDashboardScreen: React.FC = () => {
 
   if (isLoading && !stats) {
     return (
-      <View style={[styles.container, {backgroundColor: bgColor}]}>
-        <DashboardSkeleton isDark={isDark} />
+      <View style={[styles.container, {backgroundColor: COLORS.background}]}>
+        <DashboardSkeleton isDark />
       </View>
     );
   }
 
   return (
     <ScrollView
-      style={[styles.container, {backgroundColor: bgColor}]}
+      style={[styles.container, {backgroundColor: COLORS.background}]}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={[COLORS.managerColor]}
+          colors={['#3DB8FF']}
         />
       }
       showsVerticalScrollIndicator={false}>
       {/* Header */}
-      <View style={[styles.header, {backgroundColor: COLORS.managerColor, paddingTop: insets.top + SPACING.md}]}>
+      <View style={[styles.header, {backgroundColor: '#3DB8FF', paddingTop: insets.top + SPACING.md}]}>
         <View style={styles.headerLeft}>
           {gym?.gym_logo ? (
             <Image source={{uri: gym.gym_logo}} style={styles.gymLogo} />
@@ -104,7 +99,7 @@ const ManagerDashboardScreen: React.FC = () => {
           value={stats?.total_students ?? 0}
           icon="account-group"
           color={COLORS.primary}
-          isDark={isDark}
+          isDark={true}
           onPress={() => navigation.navigate('Students' as any)}
         />
         <StatCard
@@ -112,7 +107,7 @@ const ManagerDashboardScreen: React.FC = () => {
           value={stats?.pending_verification ?? 0}
           icon="account-clock"
           color={COLORS.warning}
-          isDark={isDark}
+          isDark={true}
           onPress={() => navigation.navigate('VerificationList')}
         />
       </View>
@@ -122,7 +117,7 @@ const ManagerDashboardScreen: React.FC = () => {
           value={stats ? formatCurrency(stats.revenue_this_month) : '₹0'}
           icon="cash"
           color={COLORS.success}
-          isDark={isDark}
+          isDark={true}
         />
         <StatCard
           title="Expenses"
@@ -133,7 +128,7 @@ const ManagerDashboardScreen: React.FC = () => {
           }
           icon="cash-minus"
           color={COLORS.error}
-          isDark={isDark}
+          isDark={true}
           onPress={() => navigation.navigate('Expenses' as any)}
         />
       </View>
@@ -143,37 +138,37 @@ const ManagerDashboardScreen: React.FC = () => {
           value={stats?.expired_memberships ?? 0}
           icon="calendar-remove"
           color={COLORS.secondary}
-          isDark={isDark}
+          isDark={true}
         />
         <StatCard
           title="Expiring 7d"
           value={stats?.expiring_7_days ?? 0}
           icon="calendar-clock"
           color={COLORS.info}
-          isDark={isDark}
+          isDark={true}
         />
       </View>
 
       {/* Quick Actions */}
-      <Text style={[styles.sectionTitle, {color: textColor}]}>Quick Actions</Text>
+      <Text style={[styles.sectionTitle, {color: COLORS.textPrimary}]}>Quick Actions</Text>
       <View style={styles.quickActionsGrid}>
         {[
           {icon: 'account-plus', label: 'Add Student', route: 'AddStudent', color: COLORS.primary},
           {icon: 'calendar-check', label: 'Attendance', route: 'Attendance', color: COLORS.success},
           {icon: 'account-clock', label: 'Verifications', route: 'VerificationList', color: COLORS.warning},
           {icon: 'cash-plus', label: 'Add Expense', route: 'AddExpense', color: COLORS.error},
-          {icon: 'currency-inr', label: 'Pay Salary', route: 'AddSalary', color: COLORS.success},
+          {icon: 'currency-inr', label: 'Trainer Salary', route: 'SalaryList', color: COLORS.success},
           {icon: 'chart-bar', label: 'Reports', route: 'Reports', color: COLORS.secondary},
           {icon: 'bell-outline', label: 'Notifications', route: 'Notifications', color: COLORS.info},
         ].map(item => (
           <TouchableOpacity
             key={item.route}
-            style={[styles.quickAction, {backgroundColor: cardBg}]}
+            style={[styles.quickAction, {backgroundColor: COLORS.surface}]}
             onPress={() => navigation.navigate(item.route as any)}>
             <View style={[styles.qaIcon, {backgroundColor: item.color + '20'}]}>
               <MaterialCommunityIcons name={item.icon} size={24} color={item.color} />
             </View>
-            <Text style={[styles.qaLabel, {color: textColor}]}>{item.label}</Text>
+            <Text style={[styles.qaLabel, {color: COLORS.textPrimary}]}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -230,7 +225,7 @@ const styles = StyleSheet.create({
     width: '30%',
     alignItems: 'center',
     padding: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: RADIUS.md,
     elevation: 1,
     margin: '1.5%',
   },

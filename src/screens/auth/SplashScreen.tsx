@@ -1,57 +1,88 @@
 import React, {useEffect, useRef} from 'react';
-import {StyleSheet, View, Text, Animated} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import {COLORS, APP_NAME} from '../../constants';
-import GymblixLogo from '../../components/common/GymblixLogo';
+import {StyleSheet, View, Text, Animated, StatusBar} from 'react-native';
+import {COLORS, FONT_SIZE, FONT_WEIGHT, SPACING} from '../../theme';
+import GymblixWordmark from '../../components/common/GymblixWordmark';
+
+const DOT_COUNT = 3;
 
 const SplashScreen: React.FC = () => {
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.88)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
-  const taglineY = useRef(new Animated.Value(12)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+  // 0→1→0 loop driving the breathing halo behind the logo (design: animate-logo).
+  const glowPulse = useRef(new Animated.Value(0)).current;
+  // 0→1→0 loop per dot, staggered — drives a vertical bounce (design: dot-bounce).
+  const dots = useRef(Array.from({length: DOT_COUNT}, () => new Animated.Value(0))).current;
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(opacity, {toValue: 1, duration: 700, useNativeDriver: true}),
-        Animated.spring(scale, {toValue: 1, tension: 55, friction: 8, useNativeDriver: true}),
-      ]),
-      Animated.parallel([
-        Animated.timing(taglineOpacity, {toValue: 1, duration: 400, useNativeDriver: true}),
-        Animated.timing(taglineY, {toValue: 0, duration: 400, useNativeDriver: true}),
-      ]),
+    Animated.parallel([
+      Animated.timing(opacity, {toValue: 1, duration: 700, useNativeDriver: true}),
+      Animated.spring(scale, {toValue: 1, tension: 55, friction: 8, useNativeDriver: true}),
     ]).start();
-  }, []);
+
+    // Continuous glow pulse behind the wordmark.
+    const glowLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowPulse, {toValue: 1, duration: 1500, useNativeDriver: true}),
+        Animated.timing(glowPulse, {toValue: 0, duration: 1500, useNativeDriver: true}),
+      ]),
+    );
+    glowLoop.start();
+
+    // Staggered bouncing dots.
+    const bounceLoop = Animated.loop(
+      Animated.stagger(
+        160,
+        dots.map(dot =>
+          Animated.sequence([
+            Animated.timing(dot, {toValue: 1, duration: 350, useNativeDriver: true}),
+            Animated.timing(dot, {toValue: 0, duration: 350, useNativeDriver: true}),
+          ]),
+        ),
+      ),
+    );
+    bounceLoop.start();
+
+    return () => {
+      glowLoop.stop();
+      bounceLoop.stop();
+    };
+  }, [opacity, scale, glowPulse, dots]);
+
+  const glowOpacity = glowPulse.interpolate({inputRange: [0, 1], outputRange: [0.04, 0.12]});
+  const glowScale = glowPulse.interpolate({inputRange: [0, 1], outputRange: [1, 1.18]});
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientMid, COLORS.gradientEnd]}
-      start={{x: 0, y: 0}}
-      end={{x: 1, y: 1}}
-      style={styles.container}>
-      {/* Decorative background circles */}
-      <View style={styles.decorCircle1} />
-      <View style={styles.decorCircle2} />
+    <View style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="light-content" />
 
-      <Animated.View style={[styles.content, {opacity, transform: [{scale}]}]}>
-        <View style={styles.logoGlow}>
-          <GymblixLogo size={110} />
-        </View>
-        <Text style={styles.name}>{APP_NAME}</Text>
-        <Animated.View
-          style={{
-            opacity: taglineOpacity,
-            transform: [{translateY: taglineY}],
-            alignItems: 'center',
-          }}>
-          <Text style={styles.tagline}>Power Your Gym</Text>
-          <View style={styles.divider} />
-          <Text style={styles.sub}>Fitness Management Platform</Text>
-        </Animated.View>
+      <Animated.View
+        style={[styles.glow, {opacity: glowOpacity, transform: [{scale: glowScale}]}]}
+      />
+
+      <Animated.View style={[styles.logoGlow, {opacity, transform: [{scale}]}]}>
+        <GymblixWordmark width={200} />
       </Animated.View>
 
-      <Text style={styles.version}>v1.0.0</Text>
-    </LinearGradient>
+      {/* Loader dots */}
+      <View style={styles.loaderRow}>
+        {dots.map((dot, i) => (
+          <Animated.View
+            key={i}
+            style={[
+              styles.dot,
+              {
+                opacity: dot.interpolate({inputRange: [0, 1], outputRange: [0.3, 1]}),
+                transform: [
+                  {translateY: dot.interpolate({inputRange: [0, 1], outputRange: [0, -8]})},
+                ],
+              },
+            ]}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.caption}>PERFORMANCE OPTIMIZED</Text>
+    </View>
   );
 };
 
@@ -60,63 +91,40 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: COLORS.background,
   },
-  decorCircle1: {
+  glow: {
     position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    top: -80,
-    left: -80,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: COLORS.primary,
   },
-  decorCircle2: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    bottom: -60,
-    right: -60,
-  },
-  content: {alignItems: 'center'},
   logoGlow: {
-    shadowColor: '#D93B3A',
+    shadowColor: COLORS.primary,
     shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    marginBottom: 24,
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  name: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 3,
-    marginBottom: 12,
+  loaderRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 32,
   },
-  tagline: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.goldLight,
-    letterSpacing: 1.5,
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.secondary,
   },
-  divider: {
-    width: 40,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1,
-    marginVertical: 8,
-  },
-  sub: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 0.5,
-  },
-  version: {
+  caption: {
     position: 'absolute',
-    bottom: 32,
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 12,
+    bottom: SPACING.xxl,
+    fontSize: FONT_SIZE.xs,
+    fontWeight: FONT_WEIGHT.medium,
+    color: COLORS.textSecondary,
+    letterSpacing: 2,
   },
 });
 
